@@ -1,5 +1,5 @@
 import numpy as np
-
+from neuralnet import NeuralNetwork as NN
 
 class Ship:
     def __init__(self, x, length):
