@@ -1,41 +1,16 @@
 # Likely this object oriented implementation of a neural network will be replaced with a matrix forward propagation network at some point in the future, before actual implementation of the NN
 
+import numpy as np
 
-class DNA:
-    def __init__(self, encoded):
-    
-        self.supergenome = []
-        self.genome = b''
-    #
-    
-    def getweight(self, neuronId):
-        return 0
-    #
-    
-    def encode(self):
-        encoded = "DNAOBJ_ENCODED:"
-        
-        return encoded
-    #
-#
-class Neuron:
-    def __init__(self, neuronId):
-        self.id = neuronId
-    #
-#
-class Layer:
-    def __init__(self, neuronIds):
-        self.neurons = []
-        for id in neuronIds:
-            self.neurons.append(Neuron(id))
-    #
-#
 class NeuralNetwork:
     
-    def __init__(self, dna):
-        self.dna = read_DNA(dna)
+    def __init__(self, layerSize):
+        self.layerCount = len(layerSize) - 1
+        self.shape = layerSize
         
-        #construct based on DNA
+        self._layerInput = []
+        self._layerOutput = []
+        
         
         
     #
