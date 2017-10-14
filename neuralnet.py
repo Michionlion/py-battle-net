@@ -1,12 +1,36 @@
 # Likely this object oriented implementation of a neural network will be replaced with a matrix forward propagation network at some point in the future, before actual implementation of the NN
 
 import numpy as np
+#
+# Activation Functions
+#
+def relu(x):
+    return np.maximum(x, 0)
+    #return x if x > 0 else 0
+#
+def softmax(x, t=1.0):
+    e = np.exp(x / t)
+    return e / np.sum(e)
+#
+def sigmoid(x):
+    return 1/(1+np.exp(-x))
+#
 
+#
+# Gene to weight matrix list conversion
+#
+
+
+
+
+#
+# Feed-Forward Neural Network
+#
 class NeuralNetwork:
     
-    def __init__(self, layerSize, weights=None):
-        self.layerCount = len(layerSize) - 1
-        self.shape = layerSize
+    def __init__(self, shape, weights=None):
+        self.layerCount = len(shape) - 1
+        self.shape = shape
         
         self._layerInput = []
         self._layerOutput = []
@@ -14,7 +38,7 @@ class NeuralNetwork:
         if weights == None:
             self.weights = []
             #create weight matrixes
-            for (inp, out) in zip(layerSize[:-1], layerSize[1:]):
+            for (inp, out) in zip(shape[:-1], shape[1:]):
                 self.weights.append(np.random.normal(scale=0.2, size=(out, inp+1)))
             #
         else:
@@ -23,6 +47,7 @@ class NeuralNetwork:
     
     def evaluate(self, input):
         # assume input is in form [x, y, z, ...] or np.array([x, y, z, ...]) or [[x, y, z, ...]]
+        # need to make sure it is 2d, otherwise transpose will not work (transpose of 1d is itself, not column vec)
         input = np.array(input, ndmin=2)
         #clear out previous layer in/out lists
         self._layerInput = []
@@ -37,6 +62,7 @@ class NeuralNetwork:
             else:
                 #take last layer output and do the same thing as done with before
                 vecIn = np.vstack((self._layerOutput[-1], [1]))
+                #mul weights with inputs for this layer
                 layerInput = self.weights[index].dot(vecIn)
             
             #
@@ -57,31 +83,35 @@ class NeuralNetwork:
     
 #
 
-#activation functions, returns derivative too if needed with option deriv
-def relu(x):
-    return np.maximum(x, 0)
-    #return x if x > 0 else 0
-# relu
-def softmax(x, t=1.0):
-    e = np.exp(x / t)
-    return e / np.sum(e)
+# return network info
+def netinfo(network):
+    info = "NETWORK SHAPE: " + str(nn.shape) + ", WEIGHTS:\n"
+    for i in range(len(nn.weights)):
+        mat = nn.weights[i]
+        info += "Weight matrix with shape {0!s} for transfer from layer {1!s} to layer {2!s}:\n".format(mat.shape, i, i+1)
+        for row in mat:
+            info += "\n"
+            for w in row:
+                info += "{0:10.5f}".format(w)
+            info += "\n"
+        info += "\n- - - -\n\n"
+    #
+    return info
 #
-def sigmoid(x):
-    return 1/(1+np.exp(-x))
-# sigmoid
 
 
 # if run as script, exec test
 if __name__ == "__main__":
-    nn = NeuralNetwork((3, 3, 2))
-    print("SHAPE: " + str(nn.shape))
-    wshape = []
-    for arr in nn.weights:
-        wshape.append(arr.shape)
-    #
-    print("WEIGHTS SHAPE: " + str(wshape) + "\nWEIGHTS: " + str(nn.weights))
+    nn = NeuralNetwork((5, 8, 8, 5))
     
-    input = [0, 1, 2]
+    print(netinfo(nn))
+    
+    input = [0, 1, -1, -1, -1]
     output = nn.evaluate(input).tolist()
     
-    print("\nInput: " + str(input) + "\nOutput: " + str(output))
+    info = "Input: "
+    for s in input: info += " {0:5.1f}".format(s)
+    info += "\nOutput:"
+    for s in output: info += " {0:5.3f}".format(s)
+    
+    print(info)
