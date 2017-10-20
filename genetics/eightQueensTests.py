@@ -1,14 +1,19 @@
+"""TODO: document this."""
 import unittest
 import datetime
 import genetic
 
 
 class EightQueensTests(unittest.TestCase):
+    """TODO: document this."""
 
+    @unittest.skip("skipping benchmark test")
     def test_benchmark(self):
+        """TODO: document this."""
         genetic.Benchmark.run(lambda: self.test(20))
 
     def test(self, size=8):
+        """TODO: document this."""
         geneset = [i for i in range(size)]
         startTime = datetime.datetime.now()
 
@@ -26,7 +31,10 @@ class EightQueensTests(unittest.TestCase):
 
 
 class Board:
+    """TODO: document this."""
+
     def __init__(self, genes, size):
+        """TODO: document this."""
         board = [['.'] * size for _ in range(size)]
         for index in range(0, len(genes), 2):
             row = genes[index]
@@ -35,32 +43,43 @@ class Board:
         self._board = board
 
     def get(self, row, column):
+        """TODO: document this."""
         return self._board[column][row]
 
-    def print(self):
+    def __str__(self):
+        """TODO: document this."""
         """
         Prints the board.
 
-        0,0 prints in the bottom left corner
+        0,0 prints in the top right corner
         """
+        str = ""
         for i in reversed(range(0, len(self._board))):
-            print(' '.join(self._board[i]))
+            str += ' '.join(self._board[i]) + '\n'
+
+        return str
 #
 
 
 class Fitness:
+    """TODO: document this."""
+
     def __init__(self, total):
+        """TODO: document this."""
         self.total = total
 
     def __gt__(self, other):
+        """TODO: document this."""
         return self.total < other.total
 
     def __str__(self):
+        """TODO: document this."""
         return "{}".format(self.total)
 #
 
 
 def get_fitness(genes, size):
+    """TODO: document this."""
     board = Board(genes, size)
     rowsWithQueens = set()
     colsWithQueens = set()
@@ -74,17 +93,20 @@ def get_fitness(genes, size):
                 northEastDiagonalsWithQueens.add(row + col)
                 southEastDiagonalsWithQueens.add(size - 1 - row + col)
 
-    total = size - len(rowsWithQueens) + size - len(colsWithQueens) + size - len(
-        northEastDiagonalsWithQueens) + size - len(southEastDiagonalsWithQueens)
+    total = size - len(rowsWithQueens) + size - \
+        len(colsWithQueens) + size - \
+        len(northEastDiagonalsWithQueens) + size - \
+        len(southEastDiagonalsWithQueens)
 
     return Fitness(total)
 #
 
 
 def display(candidate, startTime, size):
+    """TODO: document this."""
     timeDiff = datetime.datetime.now() - startTime
     board = Board(candidate.genes, size)
-    board.print()
+    print(str(board))
     print("{}\t- {}\t{}".format(' '.join(map(str, candidate.genes)),
                                 candidate.fitness, timeDiff))
 

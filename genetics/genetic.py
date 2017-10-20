@@ -57,7 +57,7 @@ def _mutate(parent, geneSet, get_fitness):
 
 
 def _generate_parent(length, geneSet, get_fitness):
-    """Private method to generate a new parent from geneSet of the given length."""
+    """Private method to generate a new parent from given information."""
     genes = []
     while len(genes) < length:
         sampleSize = min(length - len(genes), len(geneSet))
@@ -78,7 +78,7 @@ def _get_improvement(new_child, generate_parent):
             # bestParent is better, so keep it and keep going
             continue
         if not child.fitness > bestParent.fitness:
-            # they are equal, so switch to the newer genetic line and keep going
+            # they are equal, so switch to the newer genetic line and continue
             bestParent = child
             continue
         # child is better, so return child
@@ -97,9 +97,9 @@ def get_best(get_fitness, targetLen, optimalFitness, geneSet, display):
     def fnGenerateParent():
         return _generate_parent(targetLen, geneSet, get_fitness)
 
-    for improvement, generations in _get_improvement(fnMutate, fnGenerateParent):
-        display(improvement)
-        if not optimalFitness > improvement.fitness:
-            print("done in {0} generations".format(generations))
-            return improvement
+    for impv, gens in _get_improvement(fnMutate, fnGenerateParent):
+        display(impv)
+        if not optimalFitness > impv.fitness:
+            print("done in {0} generations".format(gens))
+            return impv
 #
