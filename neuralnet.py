@@ -9,7 +9,7 @@ def relu(x):
 
 
 def softmax(x, t=1.0):
-    """Softmax Function, normalizes a list of numbers so that they sum to 1."""
+    """Soft-max Function, normalizes a list of numbers so that they sum to 1."""
     e = np.exp(x / t)
     return e / np.sum(e)
 
@@ -69,7 +69,7 @@ class NeuralNetwork:
 
             self._layerInput.append(layerInput)
 
-            # do softmax for last step
+            # do soft-max for last step
             if index < self.layerCount-1:
                 self._layerOutput.append(relu(layerInput))
             else:
