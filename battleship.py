@@ -1,9 +1,37 @@
 import numpy as np
-from neuralnet import NeuralNetwork as NN
+import neuralnet
+import unittest
+from genetics import genetic
+
+
+class BattleshipTests(unittest.TestCase):
+    """TODO: document this."""
+
+    NETWORK_SHAPE = (5, 15, 5)
+    # weights go from -10 to 10 (inclusive)
+    WEIGHT_REACH = 10
+    # each possible weight value differs by 0.001
+    WEIGHT_DIFF = 100
+
+    def test(self):
+        """TODO: document this."""
+        geneset = [
+            i / (self.WEIGHT_REACH * self.WEIGHT_DIFF)
+            for i in range(-self.WEIGHT_DIFF *
+                           self.WEIGHT_REACH**2,
+                           self.WEIGHT_DIFF *
+                           self.WEIGHT_REACH**2 + 1)]
+        print(geneset)
+
+        genetic.Benchmark.run(lambda: 1 + 1)
+#
 
 
 class Ship:
+    """TODO: document this."""
+
     def __init__(self, x, length):
+        """TODO: document this."""
         self.length = int(length)
         self.x = int(x)
         self.sectionsAlive = [True] * (length)
@@ -14,6 +42,7 @@ class Ship:
 
     #
     def alive(self):
+        """TODO: document this."""
         count = self.length
         for alive in self.sectionsAlive:
             if not alive:
@@ -26,6 +55,7 @@ class Ship:
     #
 
     def hit(self, x):
+        """TODO: document this."""
         x = int(x)
         print("got hit at " + str(x))
         print(self.x <= x)
@@ -44,7 +74,10 @@ class Ship:
 
 
 class Board:
+    """TODO: document this."""
+
     def __init__(self, width, ships=[]):
+        """TODO: document this."""
         self.ships = ships
         self.shots = []
         self.misses = []
@@ -56,6 +89,7 @@ class Board:
     #
 
     def shoot(self, x):
+        """TODO: document this."""
         print("shooting with x=" + str(x))
         if x < 0 or x >= self.width:
             print("returning None")
@@ -72,6 +106,7 @@ class Board:
     #
 
     def won(self):
+        """TODO: document this."""
         if self.numshots() >= BOARD_SIZE:
             return True
         for ship in self.ships:
@@ -81,6 +116,7 @@ class Board:
     #
 
     def numshots(self):
+        """TODO: document this."""
         return len(self.misses) + len(self.hits)
     #
 # Board
@@ -88,26 +124,31 @@ class Board:
 
 if __name__ == '__main__':
 
-    BOARD_SIZE = 10
-    SHIP_SIZES = [3]  # , 2, 1]
-    NUM_SHIPS = 1
+    ans = input("test or play? (t/p) ")
+    if ans == "t":
+        unittest.main()
+    elif ans == "p":
+        BOARD_SIZE = 10
+        SHIP_SIZES = [3]  # , 2, 1]
+        NUM_SHIPS = 1
 
-    ships = []
-    for i in SHIP_SIZES:
-        x = np.random.randint(0, BOARD_SIZE - i + 1)
-        # need to check against other ships for collisions
-        ships.append(Ship(x, i))
-    #
-    board = Board(BOARD_SIZE, ships)
+        ships = []
+        for i in SHIP_SIZES:
+            x = np.random.randint(0, BOARD_SIZE - i + 1)
+            # need to check against other ships for collisions
+            ships.append(Ship(x, i))
+        #
+        board = Board(BOARD_SIZE, ships)
 
-    while not board.won():
-        shot = input("Where do you want to shoot? ")
-        if(input == "end"):
-            break
-        print("Your shot was a " + ("hit!" if board.shoot(int(shot)) else "miss..."))
-        print("hits: " + str(board.hits))
-        print("misses: " + str(board.misses))
-        print("sectionsAlive: " + str(board.ships[0].sectionsAlive))
-    #
+        while not board.won():
+            shot = input("Where +do you want to shoot? ")
+            if(input == "end"):
+                break
+            print("Your shot was a " +
+                  ("hit!" if board.shoot(int(shot)) else "miss..."))
+            print("hits: " + str(board.hits))
+            print("misses: " + str(board.misses))
+            print("sectionsAlive: " + str(board.ships[0].sectionsAlive))
+        #
 
 #
