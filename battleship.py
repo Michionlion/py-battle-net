@@ -1,16 +1,17 @@
 import numpy as np
 from neuralnet import NeuralNetwork as NN
 
+
 class Ship:
     def __init__(self, x, length):
         self.length = int(length)
         self.x = int(x)
         self.sectionsAlive = [True] * (length)
-        
+
         print("length: " + str(self.length))
         print("position: " + str(x))
         print("sections: " + str(self.sectionsAlive))
-        
+
     #
     def alive(self):
         count = self.length
@@ -23,6 +24,7 @@ class Ship:
         else:
             return False
     #
+
     def hit(self, x):
         x = int(x)
         print("got hit at " + str(x))
@@ -30,15 +32,16 @@ class Ship:
         print(self.x + self.length)
         print(self.x + self.length > x)
         if self.x <= x and self.x + self.length > x:
-            self.sectionsAlive[x-self.x] = False
+            self.sectionsAlive[x - self.x] = False
             print("good hit")
             return True
         else:
             print("bad hit")
             return False
     #
-    
+
 # Ship
+
 
 class Board:
     def __init__(self, width, ships=[]):
@@ -48,9 +51,10 @@ class Board:
         self.hits = []
         self.width = width
     #
-    #def add_ship(self, ship):
+    # def add_ship(self, ship):
     #    ships.append(ship)
     #
+
     def shoot(self, x):
         print("shooting with x=" + str(x))
         if x < 0 or x >= self.width:
@@ -62,10 +66,11 @@ class Board:
                 if ship.hit(x):
                     self.hits.append(x)
                     return True
-            
+
             self.misses.append(x)
             return False
     #
+
     def won(self):
         if self.numshots() >= BOARD_SIZE:
             return True
@@ -74,27 +79,27 @@ class Board:
                 return False
         return True
     #
+
     def numshots(self):
         return len(self.misses) + len(self.hits)
     #
 # Board
 
 
-
 if __name__ == '__main__':
-    
+
     BOARD_SIZE = 10
-    SHIP_SIZES = [3]#, 2, 1]
+    SHIP_SIZES = [3]  # , 2, 1]
     NUM_SHIPS = 1
-    
+
     ships = []
     for i in SHIP_SIZES:
-        x = np.random.randint(0, BOARD_SIZE-i+1)
+        x = np.random.randint(0, BOARD_SIZE - i + 1)
         # need to check against other ships for collisions
         ships.append(Ship(x, i))
     #
     board = Board(BOARD_SIZE, ships)
-    
+
     while not board.won():
         shot = input("Where do you want to shoot? ")
         if(input == "end"):
@@ -104,5 +109,5 @@ if __name__ == '__main__':
         print("misses: " + str(board.misses))
         print("sectionsAlive: " + str(board.ships[0].sectionsAlive))
     #
-    
+
 #

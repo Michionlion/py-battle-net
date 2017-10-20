@@ -16,7 +16,7 @@ def softmax(x, t=1.0):
 
 def sigmoid(x):
     """Sigmoid Activation Function, returns 0-1f."""
-    return 1/(1+np.exp(-x))
+    return 1 / (1 + np.exp(-x))
 
 
 class NeuralNetwork:
@@ -35,7 +35,7 @@ class NeuralNetwork:
             # create weight matrixes
             for (inp, out) in zip(shape[:-1], shape[1:]):
                 self.weights.append(
-                    np.random.normal(scale=0.2, size=(out, inp+1)))
+                    np.random.normal(scale=0.2, size=(out, inp + 1)))
             #
         else:
             self.weights = weights
@@ -70,7 +70,7 @@ class NeuralNetwork:
             self._layerInput.append(layerInput)
 
             # do soft-max for last step
-            if index < self.layerCount-1:
+            if index < self.layerCount - 1:
                 self._layerOutput.append(relu(layerInput))
             else:
                 self._layerOutput.append(softmax(layerInput.T).T)
@@ -88,7 +88,7 @@ def netinfo(network):
 
         info += "Weight matrix with shape " + str(mat.shape)
         info += " for transfer from layer " + str(i)
-        info += " to layer " + str(i+1) + ":\n"
+        info += " to layer " + str(i + 1) + ":\n"
 
         for row in mat:
             info += "\n"
