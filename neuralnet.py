@@ -1,23 +1,49 @@
 """Feed-Forward Neural Network, Activation Functions, and test script."""
 
 import numpy as np
-
+import pickle
 
 def relu(x):
     """Relu Activation Function, returns x when x >= 0."""
     return np.maximum(x, 0)
+#
 
 
 def softmax(x, t=1.0):
     """Soft-max Function, normalizes a list of numbers so that they sum to 1."""
     e = np.exp(x / t)
     return e / np.sum(e)
+#
 
 
 def sigmoid(x):
     """Sigmoid Activation Function, returns 0-1f."""
     return 1 / (1 + np.exp(-x))
+#
 
+
+def unflatten(shape, list):
+    index = 0
+    weights = []
+    for (inp, out) in zip(shape[:-1], shape[1:]):
+        # reconstruct the matrix
+        matrix = np.empty((out, inp + 1), dtype=float)
+        for row in range(out):
+            for entry in range(inp+1):
+                matrix[row][entry] = list[index]
+                index += 1
+        weights.append(matrix)
+    return weights
+#
+
+def flatten(matrices):
+    list = []
+    for matrix in matrices:
+        for row in matrix:
+            for weight in row:
+                list.append(weight)
+    return list
+#
 
 class NeuralNetwork:
     """Feed-Forward Neural Network."""
@@ -103,11 +129,12 @@ def netinfo(network):
 
 # if run as script, exec test
 if __name__ == "__main__":
-    nn = NeuralNetwork((5, 8, 8, 5))
+    nn = NeuralNetwork((2, 4, 2))
 
+   
     print(netinfo(nn))
-
-    input = [0, 1, -1, -1, -1]
+    
+    input = [0, 1]
     output = nn.evaluate(input).tolist()
 
     info = "Input: "
@@ -118,3 +145,6 @@ if __name__ == "__main__":
         info += " {0:5.3f}".format(s)
 
     print(info)
+    
+    with open("weights.dat", 'wb') as file:
+        pickle.dump(nn.weights, file, protocol=-1)
