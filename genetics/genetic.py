@@ -56,6 +56,14 @@ def _mutate(parent, geneSet, get_fitness):
 #
 
 
+def _mutate_custom(parent, custom_mutate, get_fitness):
+    genes = parent.genes[:]
+    custom_mutate(genes)
+    fitness = get_fitness(genes)
+    return Chromosome(genes, fitness)
+#
+
+
 def _generate_parent(length, geneSet, get_fitness):
     """Private method to generate a new parent from given information."""
     genes = []
@@ -73,6 +81,7 @@ def _get_improvement(new_child, generate_parent):
     yield bestParent, gen
     while True:
         gen += 1
+        # print("gen: {}".format(gen))
         child = new_child(bestParent)
         if bestParent.fitness > child.fitness:
             # bestParent is better, so keep it and keep going
@@ -87,12 +96,17 @@ def _get_improvement(new_child, generate_parent):
 #
 
 
-def get_best(get_fitness, targetLen, optimalFitness, geneSet, display):
+def get_best(get_fitness, targetLen, optimalFitness,
+             geneSet, display, custom_mutate=None):
     """Execute genetic algorithm with given information."""
     random.seed()
 
-    def fnMutate(parent):
-        return _mutate(parent, geneSet, get_fitness)
+    if custom_mutate is None:
+        def fnMutate(parent):
+            return _mutate(parent, geneSet, get_fitness)
+    else:
+        def fnMutate(parent):
+            return _mutate_custom(parent, custom_mutate, get_fitness)
 
     def fnGenerateParent():
         return _generate_parent(targetLen, geneSet, get_fitness)

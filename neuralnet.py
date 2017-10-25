@@ -3,6 +3,7 @@
 import numpy as np
 import pickle
 
+
 def relu(x):
     """Relu Activation Function, returns x when x >= 0."""
     return np.maximum(x, 0)
@@ -10,7 +11,7 @@ def relu(x):
 
 
 def softmax(x, t=1.0):
-    """Soft-max Function, normalizes a list of numbers so that they sum to 1."""
+    """Soft-max Function, normalizes a number list so that they sum to 1."""
     e = np.exp(x / t)
     return e / np.sum(e)
 #
@@ -29,12 +30,13 @@ def unflatten(shape, list):
         # reconstruct the matrix
         matrix = np.empty((out, inp + 1), dtype=float)
         for row in range(out):
-            for entry in range(inp+1):
+            for entry in range(inp + 1):
                 matrix[row][entry] = list[index]
                 index += 1
         weights.append(matrix)
     return weights
 #
+
 
 def flatten(matrices):
     list = []
@@ -44,6 +46,7 @@ def flatten(matrices):
                 list.append(weight)
     return list
 #
+
 
 class NeuralNetwork:
     """Feed-Forward Neural Network."""
@@ -131,9 +134,8 @@ def netinfo(network):
 if __name__ == "__main__":
     nn = NeuralNetwork((2, 4, 2))
 
-   
     print(netinfo(nn))
-    
+
     input = [0, 1]
     output = nn.evaluate(input).tolist()
 
@@ -145,6 +147,6 @@ if __name__ == "__main__":
         info += " {0:5.3f}".format(s)
 
     print(info)
-    
+
     with open("weights.dat", 'wb') as file:
         pickle.dump(nn.weights, file, protocol=-1)

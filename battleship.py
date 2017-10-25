@@ -122,6 +122,21 @@ class Board:
 # Board
 
 
+class Game:
+    """TODO: document this."""
+
+    SHIP_SIZES = [3]  # , 2, 1]
+
+    def __init__(self, size=(5, 1)):
+        """TODO: document this."""
+        self._board_size = size
+        self._ships = [Ship(np.random.randint(0, size[0] - length + 1, length))
+                       for length in range(len(self.SHIP_SIZES))]
+        self.board = Board(size[0], self._ships)
+
+#
+
+
 if __name__ == '__main__':
 
     ans = input("test or play? (t/p) ")
