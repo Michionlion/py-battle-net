@@ -3,13 +3,30 @@ import numpy as np
 import neuralnet
 import unittest
 import argparse
+import operator
 # from genetics import genetic
+
+class Fitness:
+    """Fitness object to compare genes"""
+    def __init__(self, fails, misses):
+        self.fails = fails
+        self.misses = misses
+    
+    def __gt__(self, other):
+        if self.fails != other.fails:
+            return self.fails < other.fails
+        else:
+            return self.misses < other.misses
+
+    def __str__(self):
+        return "{} Incorrect moves, {} misses".format(self.fails, self.misses)
+#
 
 
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
-    NETWORK_SHAPE = (8, 12, 8)
+    NETWORK_SHAPE = (8, 24, 8)
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
@@ -19,18 +36,28 @@ class BattleshipTests(unittest.TestCase):
 
     def test(self):
         """TODO: document this."""
-        # geneset = [
-        #    i / (self.WEIGHT_REACH * self.WEIGHT_DIFF)
-        #    for i in range(-self.WEIGHT_DIFF *
-        #                   self.WEIGHT_REACH**2,
-        #                   self.WEIGHT_DIFF *
-        #                   self.WEIGHT_REACH**2 + 1)]
-        # print(geneset)
+        geneset = [
+           i / (self.WEIGHT_REACH * self.WEIGHT_DIFF)
+           for i in range(-self.WEIGHT_DIFF *
+                          self.WEIGHT_REACH**2,
+                          self.WEIGHT_DIFF *
+                          self.WEIGHT_REACH**2 + 1)]
+        print(geneset)
+        
+        length = 1
+        for s in self.NETWORK_SHAPE:
+            length *= s
+        
+        
+        
+        rands = (self.WEIGHT_REACH * 2) * np.random.sample(length) - self.WEIGHT_REACH
+        print(rands)
+        
         nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE)
         genes = neuralnet.flatten(nn.weights)
         fit = self.get_fitness(genes)
 
-        print("fitness: " + str(fit))
+        # print("fitness: " + str(fit))
 
     def get_fitness(self, genes):
         """TODO: document this."""
