@@ -10,10 +10,10 @@ def relu(x):
 #
 
 
-def softmax(x, t=1.0):
+def softmax(x):
     """Soft-max Function, normalizes a number list so that they sum to 1."""
-    e = np.exp(x / t)
-    return e / np.sum(e)
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
 #
 
 
@@ -24,6 +24,7 @@ def sigmoid(x):
 
 
 def unflatten(shape, list):
+    """Unflatten a list into a shaped numpy array."""
     index = 0
     weights = []
     for (inp, out) in zip(shape[:-1], shape[1:]):
@@ -39,6 +40,7 @@ def unflatten(shape, list):
 
 
 def flatten(matrices):
+    """Flatten a numpy array into a list."""
     list = []
     for matrix in matrices:
         for row in matrix:
@@ -52,7 +54,7 @@ class NeuralNetwork:
     """Feed-Forward Neural Network."""
 
     def __init__(self, shape, weights=None):
-        """TODO: document this."""
+        """Initialize the Neural Network."""
         self.layerCount = len(shape) - 1
         self.shape = shape
 
@@ -64,7 +66,7 @@ class NeuralNetwork:
             # create weight matrixes
             for (inp, out) in zip(shape[:-1], shape[1:]):
                 self.weights.append(
-                    np.random.normal(scale=0.2, size=(out, inp + 1)))
+                    np.random.normal(scale=1, size=(out, inp + 1)))
             #
         else:
             self.weights = weights
@@ -73,9 +75,7 @@ class NeuralNetwork:
         """
         Execute forward propagation.
 
-        We assume input is in form [x, y, z, ...], or np.array([x, y, z, ...]),
-        or [[x, y, z, ...]]. We need to make sure it is 2d, otherwise transpose
-        will not work (transpose of 1d is itself, not column vec).
+        We assume input is in form [x, y, z, ...], or np.array([x, y, z, ...]), or [[x, y, z, ...]]. We need to make sure it is 2d, otherwise transpose will not work (transpose of 1d is itself, not column vec).
         """
         input = np.array(input, ndmin=2)
         # clear out previous layer in/out lists
