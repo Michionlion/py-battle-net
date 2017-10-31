@@ -111,9 +111,9 @@ class NeuralNetwork:
 
 def netinfo(network):
     """TODO: document this."""
-    info = "NETWORK SHAPE: " + str(nn.shape) + ", WEIGHTS:\n"
-    for i in range(len(nn.weights)):
-        mat = nn.weights[i]
+    info = "NETWORK SHAPE: " + str(network.shape) + ", WEIGHTS:\n"
+    for i in range(len(network.weights)):
+        mat = network.weights[i]
 
         info += "Weight matrix with shape " + str(mat.shape)
         info += " for transfer from layer " + str(i)
