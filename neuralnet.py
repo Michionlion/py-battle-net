@@ -9,9 +9,9 @@ def relu(x):
     return np.maximum(x, 0)
 #
 
-
+import numpy as np
 def softmax(x):
-    """Soft-max Function, normalizes a number list so that they sum to 1."""
+    """Soft-max Function, normalizes a numpy array so that the entries sum to 1."""
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 #

@@ -3,7 +3,6 @@ import numpy as np
 import neuralnet
 import unittest
 import argparse
-import operator
 import pickle
 from genetics import genetic
 
@@ -84,12 +83,12 @@ class BattleshipTests(unittest.TestCase):
                                 optimalFitness, geneset, fnDisplay)
         print("Finished with best network: " +
               str(best.fitness) + " from genes: " + str(best.genes))
-        
+
         unflat = neuralnet.unflatten(self.NETWORK_SHAPE, best.genes)
         nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=unflat)
-        
+
         print(neuralnet.netinfo(nn))
-        
+
         with open("weights.dat", 'wb') as file:
             pickle.dump(nn.weights, file, protocol=-1)
 
