@@ -4,6 +4,9 @@ import neuralnet
 import unittest
 import argparse
 import pickle
+import random
+import re
+from enum import Enum
 from genetics import genetic
 
 
@@ -14,7 +17,6 @@ class Fitness:
         self.fails = fails
         self.repeats = repeats
         self.misses = misses
-    #
 
     def __gt__(self, other):
         if self.fails != other.fails:
@@ -23,11 +25,10 @@ class Fitness:
             return self.repeats < other.repeats
         else:
             return self.misses < other.misses
-    #
 
     def __str__(self):
-        return "{0:.3f} invalid moves, {1:.3f} repeat moves, {2:.3f} misses per game".format(self.fails, self.repeats, self.misses)
-#
+        return "{:.3f} invalids, {:.3f} repeats, {:.3f} misses a game".format(
+            self.fails, self.repeats, self.misses)
 
 
 class BattleshipTests(unittest.TestCase):
@@ -56,16 +57,14 @@ class BattleshipTests(unittest.TestCase):
         fit = self.get_fitness(genes)
 
         print("fitness: " + str(fit))
-    #
 
     def test(self):
         """TODO: document this."""
         geneset = [
             i / (self.WEIGHT_REACH * self.WEIGHT_DIFF)
-            for i in range(-self.WEIGHT_DIFF *
-                           self.WEIGHT_REACH**2,
-                           self.WEIGHT_DIFF *
-                           self.WEIGHT_REACH**2 + 1)]
+            for i in range(-self.WEIGHT_DIFF * self.WEIGHT_REACH**2,
+                           self.WEIGHT_DIFF * self.WEIGHT_REACH**2 + 1)
+        ]
         # print(geneset)
 
         length = 1
@@ -79,10 +78,10 @@ class BattleshipTests(unittest.TestCase):
             return self.get_fitness(genes)
 
         optimalFitness = Fitness(0, 0, 0)
-        best = genetic.get_best(fnGetFitness, length,
-                                optimalFitness, geneset, fnDisplay)
-        print("Finished with best network: " +
-              str(best.fitness) + " from genes: " + str(best.genes))
+        best = genetic.get_best(fnGetFitness, length, optimalFitness, geneset,
+                                fnDisplay)
+        print("Finished with best network: " + str(best.fitness) +
+              " from genes: " + str(best.genes))
 
         unflat = neuralnet.unflatten(self.NETWORK_SHAPE, best.genes)
         nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=unflat)
@@ -102,8 +101,8 @@ class BattleshipTests(unittest.TestCase):
         for i in range(self.NUM_FITNESS_TESTS):
             game = Game()
             tries = 0
-            # allows tries to be more than normally possible so as to compare networks that are bad at not shooting at the same spot
-            while (not game.board.won()) and tries < game.board.squares() * 2.5:
+            while (not game.board.won()
+                   ) and tries < game.board.squares() * 2.5:
                 # input("continue?")
                 inputVals = []
                 for x in range(self.NETWORK_SHAPE[0]):
@@ -123,56 +122,62 @@ class BattleshipTests(unittest.TestCase):
                     misses += 1
                 # print("board: " + str(game.board))
                 tries += 1
-        #
-        return Fitness(fails / self.NUM_FITNESS_TESTS, repeats / self.NUM_FITNESS_TESTS, misses / self.NUM_FITNESS_TESTS)
-#
+
+        return Fitness(fails / self.NUM_FITNESS_TESTS,
+                       repeats / self.NUM_FITNESS_TESTS,
+                       misses / self.NUM_FITNESS_TESTS)
 
 
 class Ship:
     """TODO: document this."""
 
-    def __init__(self, x, length):
-        """TODO: FIXME for 2D."""
-        self.length = int(length)
-        self.x = int(x)
-        self.sectionsAlive = [True] * (length)
+    DIR = Enum("DIR", "DOWN RIGHT")
 
-        # print("length: " + str(self.length))
-        # print("position: " + str(x))
-        # print("sections: " + str(self.sectionsAlive))
+    def __init__(self, pos, length):
+        """Initialize a Ship object. If length < 0 the Ship is vertical."""
+        self.length = abs(length)
+        self.dir = self.DIR.DOWN if length < 0 else self.DIR.RIGHT
+        self.pos = pos
+        self.sectionsAlive = dict()
 
-    #
+        for x in range(self.pos[0],
+                       self.pos[0] + (self.length
+                                      if self.dir is self.DIR.RIGHT else 1)):
+            for y in range(self.pos[1], self.pos[1] +
+                           (self.length if self.dir is self.DIR.DOWN else 1)):
+                self.sectionsAlive[(x, y)] = True
+
+        print("length: " + str(self.length))
+        print("position: " + str(self.pos))
+        print("direction: " +
+              ("down" if self.dir is self.DIR.DOWN else "right"))
+        print("sections: " + str(self.sectionsAlive))
+
     def alive(self):
         """TODO: document this."""
-        count = self.length
-        for alive in self.sectionsAlive:
-            if not alive:
-                count -= 1
-        #
-        return count > 0
-    #
+        for alive in self.sectionsAlive.values():
+            if alive:
+                return True
+        return False
 
     def hit(self, pos):
-        """TODO: FIXME for 2D."""
-        x = int(pos[0])
-        # print("trying hit at " + str(x))
-        if self.x <= x and self.x + self.length > x:
-            self.sectionsAlive[x - self.x] = False
-            # print("good hit")
+        """Return if the ship is hit by a shot at pos."""
+
+        if pos in self.sectionsAlive:
+            self.sectionsAlive[pos] = False
+            # print("sectionsAlive: " + str(self.sectionsAlive))
             return True
         else:
-            # print("bad hit")
             return False
-    #
-
-# Shipwidth
 
 
 class Board:
     """
     TODO: fully document this.
 
-    shots is a dict encoded with a tuple representing the position pointing to a value, 1 for hit, -1 for miss. The key doesn't exist if it has not been shot at, but get_shot_at returns 0 for no-shot positions.
+    shots is a dict with a tuple representing the position pointing to a value,
+    1 for hit, -1 for miss. The key doesn't exist if it has not been shot at,
+    but get_shot_at returns 0 for no-shot positions.
     """
 
     HIT_INT_MARKER = 1
@@ -187,12 +192,12 @@ class Board:
         self.ships = ships
         self.shots = dict()
         self.size = size
-    #
 
     def shoot(self, pos):
         """TODO: document this."""
         # print("shooting with x=" + str(x))
-        if pos[0] < 0 or pos[0] >= self.size[0] or pos[1] < 0 or pos[1] >= self.size[1]:
+        if outween(pos[0], -1, self.size[0]) or outween(
+                pos[1], -1, self.size[1]):
             # print("invalid position " + str(pos))
             return -2
         elif pos in self.shots:
@@ -207,7 +212,6 @@ class Board:
 
             self.shots[pos] = self.MISS_INT_MARKER
             return False
-    #
 
     def squares(self):
         """TODO: document this."""
@@ -215,7 +219,8 @@ class Board:
 
     def get_shot_at(self, pos):
         """TODO: document this."""
-        return self.shots[pos] if pos in self.shots else self.UNKNOWN_INT_MARKER
+        return self.shots[
+            pos] if pos in self.shots else self.UNKNOWN_INT_MARKER
 
     def won(self):
         """TODO: document this."""
@@ -225,12 +230,10 @@ class Board:
             if ship.alive():
                 return False
         return True
-    #
 
     def numshots(self):
         """TODO: document this."""
         return len(self.shots)
-    #
 
     def __str__(self):
         """TODO: document this."""
@@ -251,51 +254,74 @@ class Board:
             if y < self.size[1] - 1:
                 rep += "\n"
         return rep
-# Board
 
 
 class Game:
     """TODO: document this."""
 
-    SHIP_SIZES = [3]  # , 2, 1]
-
-    def __init__(self, size=(8, 1)):
-        """TODO: document this."""
+    def __init__(self, size=(5, 5), ship_sizes=[3, 2]):
+        """TODO: FIXME for multiple ships - check ship overlap."""
         self._board_size = size
-        self._ships = [Ship(np.random.randint(
-            0, size[0] - length + 1), length) for length in self.SHIP_SIZES]
+        self._ships = [self.genShip(length) for length in ship_sizes]
         self.board = Board(size, self._ships)
 
-#
+    def genShip(self, length):
+        d = random.choice([1, -1])
+
+        xr = self._board_size[0] if d < 0 else self._board_size[0] - length
+        yr = self._board_size[1] if d > 0 else self._board_size[1] - length
+
+        shipPos = (random.randrange(0, xr), random.randrange(0, yr))
+
+        return Ship(shipPos, d * length)
 
 
 def human_play_test():
-    """Playtest battleship with a human player (input entered through terminal)."""
-    # NEED TO FIX THIS TO WORK WITH TUPLES FOR POSITIONS
+    """Playtest battleship with a human player (terminal input)."""
 
-    BOARD_SIZE = (10, 1)
-    SHIP_SIZES = [3]  # , 2, 1]
-    # NUM_SHIPS = 1
+    size = tuple(map(int, input("Enter board size (w,h): ").split(",")))
+    game = Game(size, [4])
 
-    ships = [Ship(np.random.randint(0, BOARD_SIZE[0] - length + 1), length)
-             for length in SHIP_SIZES]
-    board = Board(BOARD_SIZE, ships)
+    print("0, 0 is at the top left")
+    while not game.board.won():
+        print("board:\n" + str(game.board))
 
-    while not board.won():
-        shot = input("Where do you want to shoot? ")
-        if(shot == "end"):
-            break
+        done = False
+        while not done:
+            shot = input("Where do you want to shoot (x, y)? ")
+            if (shot == "end"):
+                break
+            if re.match(r" *\d+ *, *\d+ *", shot) is None:
+                print("could not parse input, use form 'number, number'!")
+            else:
+                done = True
+        shot = tuple(map(int, shot.split(",")))
         print("Your shot was a " +
-              ("hit!" if board.shoot(int(shot)) else "miss..."))
-        print("board:\n" + str(board))
-#
+              ("hit!" if game.board.shoot(shot) else "miss..."))
+
+    print("You Won! The final board was...")
+    print(game.board)
+    print(" - - WINNER!! - -")
+
+
+def between(toTest, lower=0, upper=1):
+    return toTest >= lower and toTest <= upper
+
+
+def outween(toTest, lower=0, upper=1):
+    return toTest <= lower or toTest >= upper
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="The classic game Battleship.")
-    parser.add_argument('--play', dest='test', action='store_const', const=True, default=False,
-                        help='Play the game as a human player (default: train AI to play the game)')
+    parser.add_argument(
+        '--play',
+        dest='test',
+        action='store_const',
+        const=True,
+        default=False,
+        help='Play the game as a human player (default: train AI)')
     args = parser.parse_args()
     if args.test:
         human_play_test()
