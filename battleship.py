@@ -6,16 +6,19 @@ import argparse
 import pickle
 import random
 import re
+import datetime
 from enum import Enum
 from genetics import genetic
+from multiprocessing import Pool
 
 
 class Fitness:
     """Fitness object to compare genes"""
 
-    def __init__(self, fails, repeats, misses):
+    def __init__(self, fails, repeats, tries, misses):
         self.fails = fails
         self.repeats = repeats
+        self.tries = tries
         self.misses = misses
 
     def __gt__(self, other):
@@ -23,34 +26,34 @@ class Fitness:
             return self.fails < other.fails
         elif self.repeats != other.repeats:
             return self.repeats < other.repeats
+        elif self.tries != other.tries:
+            return self.tries < other.tries
         else:
             return self.misses < other.misses
 
     def __str__(self):
-        return "{:.3f} invalids, {:.3f} repeats, {:.3f} misses a game".format(
-            self.fails, self.repeats, self.misses)
+        return "{:.3f} fails, {:.3f} repeats, {:.3f} tries, {:.3f} misses".format(
+            self.fails, self.repeats, self.tries, self.misses)
 
 
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
+    # NETWORK_SHAPE = (8 * 8, 8 * 6, 8 * 6, 8 * 8)
     NETWORK_SHAPE = (8, 3, 8)
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
     WEIGHT_DIFF = 100
 
-    NUM_FITNESS_TESTS = 7
+    NUM_FITNESS_TESTS = 12
+
+    GENE_LENGTH = 1
+    for s in NETWORK_SHAPE:
+        GENE_LENGTH *= s
 
     @unittest.skip("skipping random_network test")
     def test_random_network(self):
-        length = 1
-        for s in self.NETWORK_SHAPE:
-            length *= s
-
-        rands = (self.WEIGHT_REACH * 2) * \
-            np.random.sample(length) - self.WEIGHT_REACH
-        print(rands)
 
         nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE)
         genes = neuralnet.flatten(nn.weights)
@@ -58,28 +61,41 @@ class BattleshipTests(unittest.TestCase):
 
         print("fitness: " + str(fit))
 
+    @unittest.skip("skipping mutation test")
+    def test_mutations(self):
+        for _ in range(10):
+            sample_genes = [-4.32, 1.5643, 0.2523, -12.432]
+            print("genes: " + str(sample_genes))
+
+            self.mutate_genes(sample_genes)
+
+            print("after mutation: " + str(sample_genes))
+
+    start = 0
+
     def test(self):
         """TODO: document this."""
-        geneset = [
-            i / (self.WEIGHT_REACH * self.WEIGHT_DIFF)
-            for i in range(-self.WEIGHT_DIFF * self.WEIGHT_REACH**2,
-                           self.WEIGHT_DIFF * self.WEIGHT_REACH**2 + 1)
-        ]
-        # print(geneset)
 
-        length = 1
-        for s in self.NETWORK_SHAPE:
-            length *= s
+        startTime = datetime.datetime.now()
 
         def fnDisplay(candidate):
-            print(candidate.fitness)
+            self.start += 1
+            print(
+                str(self.start) + " " + str(candidate.fitness) + " -- " +
+                str(datetime.datetime.now() - startTime))
 
         def fnGetFitness(genes):
             return self.get_fitness(genes)
 
-        optimalFitness = Fitness(0, 0, 0)
-        best = genetic.get_best(fnGetFitness, length, optimalFitness, geneset,
-                                fnDisplay)
+        def fnCreate():
+            return self.create_gene()
+
+        def fnMutate(genes):
+            self.mutate_genes(genes)
+
+        optimalFitness = Fitness(0, 0, 0, 0)
+        best = genetic.get_best(fnGetFitness, None, optimalFitness, None,
+                                fnDisplay, fnMutate, fnCreate, 500)
         print("Finished with best network: " + str(best.fitness) +
               " from genes: " + str(best.genes))
 
@@ -91,41 +107,102 @@ class BattleshipTests(unittest.TestCase):
         with open("weights.dat", 'wb') as file:
             pickle.dump(nn.weights, file, protocol=-1)
 
+    def create_gene(self):
+        """TODO: document this."""
+        nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE)
+        genes = neuralnet.flatten(nn.weights)
+        return genes
+
+    def mutate_genes(self, genes):
+        # types of mutations
+        def replace():
+            # print("replace")
+            index = random.randrange(0, len(genes))
+            genes[index] = random.uniform(-self.WEIGHT_REACH,
+                                          self.WEIGHT_REACH)
+
+        def scale():
+            # print("scale")
+            index = random.randrange(0, len(genes))
+            genes[index] *= random.uniform(0.5, 1.5)
+
+        def delta_change():
+            # print("delta")
+            index = random.randrange(0, len(genes))
+            change = random.uniform(-1, 1)
+            genes[index] += change
+
+        def sign_change():
+            # print("sign")
+            index = random.randrange(0, len(genes))
+            genes[index] *= -1
+
+        def swap():
+            # print("swap")
+            first = second = 0
+            while (first == second):
+                first = random.randrange(0, len(genes))
+                second = random.randrange(0, len(genes))
+            genes[first], genes[second] = genes[second], genes[first]
+
+        mutations = [replace, scale, delta_change, sign_change, swap]
+        numMutations = 1
+        mutes = random.sample(mutations, numMutations)
+        for mut in mutes:
+            mut()
+
     def get_fitness(self, genes):
         """TODO: document this."""
         weights = neuralnet.unflatten(self.NETWORK_SHAPE, genes)
         network = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=weights)
-        fails = 0
-        misses = 0
-        repeats = 0
+
+        results = []
+        pool = Pool()
         for i in range(self.NUM_FITNESS_TESTS):
-            game = Game()
-            tries = 0
-            while (not game.board.won()
-                   ) and tries < game.board.squares() * 2.5:
-                # input("continue?")
-                inputVals = []
-                for x in range(self.NETWORK_SHAPE[0]):
-                    inputVals.append(game.board.get_shot_at((x, 0)))
-                #
-                # print("evaluating on " + str(inputVals))
-                selection = network.evaluate(inputVals)
-                # print("outputs were " + str(selection))
-                shot = (int(np.argmax(selection)), 0)
-                # print("shooting at " + str(shot))
-                result = game.board.shoot(shot)
-                if result == -2:
-                    fails += 1
-                elif result == -3:
-                    repeats += 1
-                elif result is False:
-                    misses += 1
-                # print("board: " + str(game.board))
-                tries += 1
+            # running tests
+            results.append(pool.apply_async(run_game, args=(network, )))
+        # print(results)
+        pool.close()
+        pool.join()
+        tries = fails = repeats = misses = 0
+        for res in results:
+            t, f, r, m = res.get()
+            tries += t
+            fails += f
+            repeats += r
+            misses += m
 
         return Fitness(fails / self.NUM_FITNESS_TESTS,
                        repeats / self.NUM_FITNESS_TESTS,
+                       tries / self.NUM_FITNESS_TESTS / 8,
                        misses / self.NUM_FITNESS_TESTS)
+
+
+def run_game(network):
+    game = Game(size=(8, 1), ship_sizes=[4])
+    # print("board:\n" + str(game.board))
+    tries = fails = repeats = misses = 0
+    while (not game.board.won()) and tries < game.board.squares() * 2.5:
+        # input("continue?")
+        inputVals = []
+        for x in range(BattleshipTests.NETWORK_SHAPE[0]):
+            inputVals.append(game.board.get_shot_at((x, 0)))
+        #
+        # print("evaluating on " + str(inputVals))
+        selection = network.evaluate(inputVals)
+        # print("outputs were " + str(selection))
+        shot = (int(np.argmax(selection)), 0)
+        # print("shooting at " + str(shot))
+        result = game.board.shoot(shot)
+        if result == -2:
+            fails += 1
+        elif result == -3:
+            repeats += 1
+        elif result is False:
+            misses += 1
+        # print("board: " + str(game.board))
+        tries += 1
+    return tries, fails, repeats, misses
 
 
 class Ship:
@@ -147,11 +224,11 @@ class Ship:
                            (self.length if self.dir is self.DIR.DOWN else 1)):
                 self.sectionsAlive[(x, y)] = True
 
-        print("length: " + str(self.length))
-        print("position: " + str(self.pos))
-        print("direction: " +
-              ("down" if self.dir is self.DIR.DOWN else "right"))
-        print("sections: " + str(self.sectionsAlive))
+        # print("length: " + str(self.length))
+        # print("position: " + str(self.pos))
+        # print("direction: " +
+        # ("down" if self.dir is self.DIR.DOWN else "right"))
+        # print("sections: " + str(self.sectionsAlive))
 
     def alive(self):
         """TODO: document this."""
@@ -266,12 +343,18 @@ class Game:
         self.board = Board(size, self._ships)
 
     def genShip(self, length):
+        def rand(start, stop):
+            if stop - start <= 1 or stop < start:
+                return start
+            else:
+                return random.randrange(start, stop)
+
         d = random.choice([1, -1])
 
         xr = self._board_size[0] if d < 0 else self._board_size[0] - length
         yr = self._board_size[1] if d > 0 else self._board_size[1] - length
 
-        shipPos = (random.randrange(0, xr), random.randrange(0, yr))
+        shipPos = (rand(0, xr), rand(0, yr))
 
         return Ship(shipPos, d * length)
 

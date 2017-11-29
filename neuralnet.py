@@ -10,6 +10,8 @@ def relu(x):
 #
 
 import numpy as np
+
+
 def softmax(x):
     """Soft-max Function, normalizes a numpy array so that the entries sum to 1."""
     e_x = np.exp(x - np.max(x))
@@ -51,6 +53,7 @@ def flatten(matrices):
 
 
 class NeuralNetwork:
+
     """Feed-Forward Neural Network."""
 
     def __init__(self, shape, weights=None):
