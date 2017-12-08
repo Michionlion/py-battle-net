@@ -20,31 +20,38 @@ class Fitness:
         self.repeats = repeats
         self.tries = tries
         self.misses = misses
+        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2
+
+
+#    def __gt__(self, other):
+#        if self.fails != other.fails:
+#            return self.fails < other.fails
+#        elif self.tries != other.tries:
+#            return self.tries < other.tries
+#        elif self.repeats != other.repeats:
+#            return self.repeats < other.repeats
+#        else:
+#            return self.misses < other.misses
 
     def __gt__(self, other):
-        if self.fails != other.fails:
-            return self.fails < other.fails
-        elif self.repeats != other.repeats:
-            return self.repeats < other.repeats
-        elif self.tries != other.tries:
-            return self.tries < other.tries
-        else:
-            return self.misses < other.misses
+        return self.score < other.score
 
     def __str__(self):
-        return "{:.3f} fails, {:.3f} repeats, {:.3f} tries, {:.3f} misses".format(
-            self.fails, self.repeats, self.tries, self.misses)
+        return "{:.3f} fails, {:.3f} repeats, ".format(
+            self.fails,
+            self.repeats) + "{:.3f} tries, {:.3f} misses, {:.3f} score".format(
+                self.tries, self.misses, self.score)
 
 
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
     # NETWORK_SHAPE = (8 * 8, 8 * 6, 8 * 6, 8 * 8)
-    NETWORK_SHAPE = (8, 3, 8)
+    NETWORK_SHAPE = (25, 36, 25)
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
-    WEIGHT_DIFF = 100
+    # WEIGHT_DIFF = 100
 
     NUM_FITNESS_TESTS = 12
 
@@ -146,8 +153,9 @@ class BattleshipTests(unittest.TestCase):
             genes[first], genes[second] = genes[second], genes[first]
 
         mutations = [replace, scale, delta_change, sign_change, swap]
-        numMutations = 1
-        mutes = random.sample(mutations, numMutations)
+        numMutations = random.randint(1, 5)
+        mutes = random.choices(
+            mutations, weights=[3, 2, 4, 1, 6], k=numMutations)
         for mut in mutes:
             mut()
 
@@ -174,32 +182,39 @@ class BattleshipTests(unittest.TestCase):
 
         return Fitness(fails / self.NUM_FITNESS_TESTS,
                        repeats / self.NUM_FITNESS_TESTS,
-                       tries / self.NUM_FITNESS_TESTS / 8,
+                       tries / self.NUM_FITNESS_TESTS / 25.0,
                        misses / self.NUM_FITNESS_TESTS)
 
 
 def run_game(network):
-    game = Game(size=(8, 1), ship_sizes=[4])
+    size = (5, 5)
+    game = Game(size, ship_sizes=[4, 3])
     # print("board:\n" + str(game.board))
     tries = fails = repeats = misses = 0
     while (not game.board.won()) and tries < game.board.squares() * 2.5:
         # input("continue?")
         inputVals = []
-        for x in range(BattleshipTests.NETWORK_SHAPE[0]):
-            inputVals.append(game.board.get_shot_at((x, 0)))
-        #
+        for x in range(size[0]):
+            for y in range(size[1]):
+                inputVals.append(game.board.get_shot_at((x, y)))
         # print("evaluating on " + str(inputVals))
         selection = network.evaluate(inputVals)
         # print("outputs were " + str(selection))
-        shot = (int(np.argmax(selection)), 0)
+        arg = int(np.argmax(selection))
+        shot = (arg // size[0], arg % size[1])
         # print("shooting at " + str(shot))
         result = game.board.shoot(shot)
-        if result == -2:
-            fails += 1
-        elif result == -3:
-            repeats += 1
-        elif result is False:
+        if result is False:
             misses += 1
+        elif result is True:
+            pass
+            # hit
+        elif result.startswith("already"):
+            repeats += 1
+        elif result.startswith("invalid"):
+            fails += 1
+        else:
+            raise Exception("Invalid return from board.shoot()")
         # print("board: " + str(game.board))
         tries += 1
     return tries, fails, repeats, misses
@@ -237,11 +252,12 @@ class Ship:
                 return True
         return False
 
-    def hit(self, pos):
+    def hit(self, pos, doDamage=True):
         """Return if the ship is hit by a shot at pos."""
 
         if pos in self.sectionsAlive:
-            self.sectionsAlive[pos] = False
+            if (doDamage):
+                self.sectionsAlive[pos] = False
             # print("sectionsAlive: " + str(self.sectionsAlive))
             return True
         else:
@@ -276,10 +292,10 @@ class Board:
         if outween(pos[0], -1, self.size[0]) or outween(
                 pos[1], -1, self.size[1]):
             # print("invalid position " + str(pos))
-            return -2
+            return "invalid position " + str(pos)
         elif pos in self.shots:
             # print("already shot at " + str(pos))
-            return -3
+            return "already shot at" + str(pos)
         else:
             for ship in self.ships:
                 # print("hitting " + str(ship))
@@ -339,7 +355,11 @@ class Game:
     def __init__(self, size=(5, 5), ship_sizes=[3, 2]):
         """TODO: FIXME for multiple ships - check ship overlap."""
         self._board_size = size
-        self._ships = [self.genShip(length) for length in ship_sizes]
+        self._ships = list()
+
+        for length in ship_sizes:
+            self._ships.append(self.genShip(length))
+
         self.board = Board(size, self._ships)
 
     def genShip(self, length):
@@ -354,16 +374,33 @@ class Game:
         xr = self._board_size[0] if d < 0 else self._board_size[0] - length
         yr = self._board_size[1] if d > 0 else self._board_size[1] - length
 
-        shipPos = (rand(0, xr), rand(0, yr))
+        if xr < 0 or yr < 0:
+            raise Exception(
+                "Ship size too large, x or y range is negative to fit ship!")
 
-        return Ship(shipPos, d * length)
+        def overlaps(ship):
+            for other_ship in self._ships:
+                for this_pos in ship.sectionsAlive.keys():
+                    if other_ship.hit(this_pos, False):
+                        return True
+
+        while (True):
+            pos = (rand(0, xr), rand(0, yr))
+            ship = Ship(pos, d * length)
+            if not overlaps(ship):
+                break
+
+        return ship
 
 
 def human_play_test():
     """Playtest battleship with a human player (terminal input)."""
 
     size = tuple(map(int, input("Enter board size (w,h): ").split(",")))
-    game = Game(size, [4])
+    ships = list(
+        map(int,
+            input("Enter ship sizes (size1,size2,...)").split(",")))
+    game = Game(size, ships)
 
     print("0, 0 is at the top left")
     while not game.board.won():
@@ -371,16 +408,17 @@ def human_play_test():
 
         done = False
         while not done:
-            shot = input("Where do you want to shoot (x, y)? ")
-            if (shot == "end"):
+            shot = input("Where do you want to shoot (x, y)? ").strip()
+            if (shot == "end" or shot == "exit" or shot == "quit"):
                 break
-            if re.match(r" *\d+ *, *\d+ *", shot) is None:
+            if re.fullmatch(r"\d+[ ]*,[ ]*\d+", shot) is None:
                 print("could not parse input, use form 'number, number'!")
             else:
                 done = True
         shot = tuple(map(int, shot.split(",")))
-        print("Your shot was a " +
-              ("hit!" if game.board.shoot(shot) else "miss..."))
+        result = game.board.shoot(shot)
+        print("Your shot was a " + ("hit!" if result is True else "miss..."
+                                    if result is False else "error"))
 
     print("You Won! The final board was...")
     print(game.board)
