@@ -15,12 +15,13 @@ from multiprocessing import Pool
 class Fitness:
     """Fitness object to compare genes"""
 
-    def __init__(self, fails, repeats, tries, misses):
+    def __init__(self, fails, repeats, tries, misses, hits):
         self.fails = fails
         self.repeats = repeats
         self.tries = tries
         self.misses = misses
-        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2
+        self.hits = hits
+        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2 - hits * 4
 
 
 #    def __gt__(self, other):
@@ -46,8 +47,8 @@ class Fitness:
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
-    # NETWORK_SHAPE = (8 * 8, 8 * 6, 8 * 6, 8 * 8)
     NETWORK_SHAPE = (25, 36, 25)
+    SHIP_SIZES = [4,3]
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
@@ -172,25 +173,27 @@ class BattleshipTests(unittest.TestCase):
         # print(results)
         pool.close()
         pool.join()
-        tries = fails = repeats = misses = 0
+        tries = fails = repeats = misses = hits = 0
         for res in results:
-            t, f, r, m = res.get()
+            t, f, r, m, h = res.get()
             tries += t
             fails += f
             repeats += r
             misses += m
+            hits += h
 
         return Fitness(fails / self.NUM_FITNESS_TESTS,
                        repeats / self.NUM_FITNESS_TESTS,
                        tries / self.NUM_FITNESS_TESTS / 25.0,
-                       misses / self.NUM_FITNESS_TESTS)
+                       misses / self.NUM_FITNESS_TESTS,
+                       hits / self.NUM_FITNESS_TESTS)
 
 
 def run_game(network):
     size = (5, 5)
-    game = Game(size, ship_sizes=[4, 3])
+    game = Game(size, ship_sizes=BattleshipTests.SHIP_SIZES)
     # print("board:\n" + str(game.board))
-    tries = fails = repeats = misses = 0
+    tries = fails = repeats = misses = hits = 0
     while (not game.board.won()) and tries < game.board.squares() * 2.5:
         # input("continue?")
         inputVals = []
@@ -207,8 +210,7 @@ def run_game(network):
         if result is False:
             misses += 1
         elif result is True:
-            pass
-            # hit
+            hits += 1
         elif result.startswith("already"):
             repeats += 1
         elif result.startswith("invalid"):
@@ -217,7 +219,7 @@ def run_game(network):
             raise Exception("Invalid return from board.shoot()")
         # print("board: " + str(game.board))
         tries += 1
-    return tries, fails, repeats, misses
+    return tries, fails, repeats, misses, hits
 
 
 class Ship:
