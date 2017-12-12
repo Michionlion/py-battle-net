@@ -1,14 +1,13 @@
 """TODO: document this."""
 import numpy as np
 import neuralnet
+import genetic
 import unittest
 import argparse
-import pickle
 import random
 import re
 import datetime
 from enum import Enum
-from genetics import genetic
 from multiprocessing import Pool
 
 
@@ -21,7 +20,7 @@ class Fitness:
         self.tries = tries
         self.misses = misses
         self.hits = hits
-        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2 - hits * 4
+        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2
 
 
 #    def __gt__(self, other):
@@ -35,12 +34,41 @@ class Fitness:
 #            return self.misses < other.misses
 
     def __gt__(self, other):
-        return self.score < other.score
+        if isinstance(other, Fitness):
+            return self.score < other.score
+        else:
+            return self.score < other
+
+    def __add__(self, other):
+        if isinstance(other, Fitness):
+            return Fitness(self.fails + other.fails,
+                           self.repeats + other.repeats,
+                           self.tries + other.tries,
+                           self.misses + other.misses, self.hits + other.hits)
+        else:
+            return self.score + other
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __truediv__(self, other):
+        return self.score / other
+
+    def __floordiv__(self, other):
+        if isinstance(other, Fitness):
+            return Fitness(self.fails / other.fails,
+                           self.repeats / other.repeats,
+                           self.tries / other.tries,
+                           self.misses / other.misses, self.hits / other.hits)
+        else:
+            return Fitness(self.fails / other, self.repeats / other,
+                           self.tries / other, self.misses / other,
+                           self.hits / other)
 
     def __str__(self):
         return "{:.3f} fails, {:.3f} repeats, ".format(
             self.fails,
-            self.repeats) + "{:.3f} tries, {:.3f} misses, {:.3f} score".format(
+            self.repeats) + "{:.3f} tries, {:.3f} misses == {:.3f}".format(
                 self.tries, self.misses, self.score)
 
 
@@ -48,13 +76,13 @@ class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
     NETWORK_SHAPE = (25, 36, 25)
-    SHIP_SIZES = [4,3]
+    SHIP_SIZES = [4, 3]
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
     # WEIGHT_DIFF = 100
 
-    NUM_FITNESS_TESTS = 12
+    NUM_FITNESS_TESTS = 5
 
     GENE_LENGTH = 1
     for s in NETWORK_SHAPE:
@@ -69,28 +97,25 @@ class BattleshipTests(unittest.TestCase):
 
         print("fitness: " + str(fit))
 
-    @unittest.skip("skipping mutation test")
-    def test_mutations(self):
-        for _ in range(10):
-            sample_genes = [-4.32, 1.5643, 0.2523, -12.432]
-            print("genes: " + str(sample_genes))
-
-            self.mutate_genes(sample_genes)
-
-            print("after mutation: " + str(sample_genes))
-
-    start = 0
-
     def test(self):
         """TODO: document this."""
 
         startTime = datetime.datetime.now()
 
-        def fnDisplay(candidate):
-            self.start += 1
-            print(
-                str(self.start) + " " + str(candidate.fitness) + " -- " +
-                str(datetime.datetime.now() - startTime))
+        def fnDisplay(population, gen):
+            avg = Fitness(0, 0, 0, 0, 0)
+            for ind in population:
+                avg = avg + ind.fitness
+            avg = avg // len(population)
+
+            max_fit = avg
+            for ind in population:
+                if not max_fit > ind.fitness:
+                    max_fit = ind.fitness
+
+            print("Gen " + str(gen) + ":\nAvg Fitness: " + str(avg) +
+                  "\nMax Fitness: " + str(max_fit) + "\nElapsed Time: " +
+                  str(datetime.datetime.now() - startTime) + "\n -- ")
 
         def fnGetFitness(genes):
             return self.get_fitness(genes)
@@ -98,67 +123,15 @@ class BattleshipTests(unittest.TestCase):
         def fnCreate():
             return self.create_gene()
 
-        def fnMutate(genes):
-            self.mutate_genes(genes)
+        muts = generate_mutations()
 
-        optimalFitness = Fitness(0, 0, 0, 0)
-        best = genetic.get_best(fnGetFitness, None, optimalFitness, None,
-                                fnDisplay, fnMutate, fnCreate, 500)
-        print("Finished with best network: " + str(best.fitness) +
-              " from genes: " + str(best.genes))
-
-        unflat = neuralnet.unflatten(self.NETWORK_SHAPE, best.genes)
-        nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=unflat)
-
-        print(neuralnet.netinfo(nn))
-
-        with open("weights.dat", 'wb') as file:
-            pickle.dump(nn.weights, file, protocol=-1)
+        genetic.evolve(15, 0.82, 0.11, fnGetFitness, fnDisplay, muts, fnCreate)
 
     def create_gene(self):
         """TODO: document this."""
         nn = neuralnet.NeuralNetwork(self.NETWORK_SHAPE)
         genes = neuralnet.flatten(nn.weights)
         return genes
-
-    def mutate_genes(self, genes):
-        # types of mutations
-        def replace():
-            # print("replace")
-            index = random.randrange(0, len(genes))
-            genes[index] = random.uniform(-self.WEIGHT_REACH,
-                                          self.WEIGHT_REACH)
-
-        def scale():
-            # print("scale")
-            index = random.randrange(0, len(genes))
-            genes[index] *= random.uniform(0.5, 1.5)
-
-        def delta_change():
-            # print("delta")
-            index = random.randrange(0, len(genes))
-            change = random.uniform(-1, 1)
-            genes[index] += change
-
-        def sign_change():
-            # print("sign")
-            index = random.randrange(0, len(genes))
-            genes[index] *= -1
-
-        def swap():
-            # print("swap")
-            first = second = 0
-            while (first == second):
-                first = random.randrange(0, len(genes))
-                second = random.randrange(0, len(genes))
-            genes[first], genes[second] = genes[second], genes[first]
-
-        mutations = [replace, scale, delta_change, sign_change, swap]
-        numMutations = random.randint(1, 5)
-        mutes = random.choices(
-            mutations, weights=[3, 2, 4, 1, 6], k=numMutations)
-        for mut in mutes:
-            mut()
 
     def get_fitness(self, genes):
         """TODO: document this."""
@@ -182,11 +155,10 @@ class BattleshipTests(unittest.TestCase):
             misses += m
             hits += h
 
-        return Fitness(fails / self.NUM_FITNESS_TESTS,
-                       repeats / self.NUM_FITNESS_TESTS,
-                       tries / self.NUM_FITNESS_TESTS / 25.0,
-                       misses / self.NUM_FITNESS_TESTS,
-                       hits / self.NUM_FITNESS_TESTS)
+        return Fitness(
+            fails / self.NUM_FITNESS_TESTS, repeats / self.NUM_FITNESS_TESTS,
+            tries / self.NUM_FITNESS_TESTS / 25.0,
+            misses / self.NUM_FITNESS_TESTS, hits / self.NUM_FITNESS_TESTS)
 
 
 def run_game(network):
@@ -220,6 +192,45 @@ def run_game(network):
         # print("board: " + str(game.board))
         tries += 1
     return tries, fails, repeats, misses, hits
+
+
+def generate_mutations():
+    def replace(genes):
+        # print("replace")
+        index = random.randrange(0, len(genes))
+        genes[index] = random.uniform(-BattleshipTests.WEIGHT_REACH,
+                                      BattleshipTests.WEIGHT_REACH)
+        return genes
+
+    def scale(genes):
+        # print("scale")
+        index = random.randrange(0, len(genes))
+        genes[index] *= random.uniform(0.5, 1.5)
+        return genes
+
+    def delta_change(genes):
+        # print("delta")
+        index = random.randrange(0, len(genes))
+        change = random.uniform(-1, 1)
+        genes[index] += change
+        return genes
+
+    def sign_change(genes):
+        # print("sign")
+        index = random.randrange(0, len(genes))
+        genes[index] *= -1
+        return genes
+
+    def swap(genes):
+        # print("swap")
+        first = second = 0
+        while (first == second):
+            first = random.randrange(0, len(genes))
+            second = random.randrange(0, len(genes))
+        genes[first], genes[second] = genes[second], genes[first]
+        return genes
+
+    return [replace, scale, delta_change, sign_change, swap]
 
 
 class Ship:
@@ -449,4 +460,4 @@ if __name__ == '__main__':
     if args.test:
         human_play_test()
     else:
-        unittest.main()
+        BattleshipTests().test()
