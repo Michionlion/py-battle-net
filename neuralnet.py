@@ -2,7 +2,7 @@
 
 import numpy as np
 import pickle
-
+import display as visualizer
 
 def relu(x):
     """Relu Activation Function, returns x when x >= 0."""
@@ -74,6 +74,10 @@ class NeuralNetwork:
         else:
             self.weights = weights
 
+    def get_weight(self, from_layer, from_index, to_index):
+        return weights[from_layer+1][to_index, from_index];
+
+
     def evaluate(self, input):
         """
         Execute forward propagation.
@@ -112,8 +116,10 @@ class NeuralNetwork:
         return self._layerOutput[-1].T[0]
 
 
-def netinfo(network):
+def netinfo(network, gui=False):
     """TODO: document this."""
+    if(gui):
+        visualizer.displayNetwork(network.shape, network.weights)
     info = "NETWORK SHAPE: " + str(network.shape) + ", WEIGHTS:\n"
     for i in range(len(network.weights)):
         mat = network.weights[i]
@@ -135,15 +141,15 @@ def netinfo(network):
 
 # if run as script, exec test
 if __name__ == "__main__":
-    nn = NeuralNetwork((2, 4, 2))
+    nn = NeuralNetwork((2, 2))
 
-    print(netinfo(nn))
+    print(netinfo(nn, True))
 
-    input = [0, 1]
-    output = nn.evaluate(input).tolist()
+    inp = [0, 1]
+    output = nn.evaluate(inp).tolist()
 
     info = "Input: "
-    for s in input:
+    for s in inp:
         info += " {0:5.1f}".format(s)
     info += "\nOutput:"
     for s in output:
@@ -151,5 +157,7 @@ if __name__ == "__main__":
 
     print(info)
 
-    with open("weights.dat", 'wb') as file:
-        pickle.dump(nn.weights, file, protocol=-1)
+    input("end?")
+
+    # with open("weights.dat", 'wb') as file:
+    #    pickle.dump(nn.weights, file, protocol=-1)
