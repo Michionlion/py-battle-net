@@ -4,8 +4,9 @@ Genetic Engine Module.
 Provides methods and classes for evolving a phenotype with a given genotype.
 """
 import random
+from profilestats import profile
 
-MAX_NUM_MUTATIONS = 5
+MAX_NUM_MUTATIONS = 7
 
 
 class Chromosome:
@@ -56,6 +57,7 @@ not make sense if your network only has a few layers.
 """
 
 
+@profile()
 def crossover(genes1, genes2):
     """Do single-point crossover to generate children from given genes"""
     r = random.randint(1, len(genes1) - 1)
@@ -64,6 +66,7 @@ def crossover(genes1, genes2):
     genes1[r:], genes2[r:] = genes2[r:], genes1[r:]
 
 
+@profile()
 def _mutate(genes, mutations):
     """Mutate genes with possible mutations mutations"""
     if isinstance(genes, Chromosome):
@@ -73,9 +76,10 @@ def _mutate(genes, mutations):
 
     for mute in mutes:
         genes = mute(genes)
-    return genes
+    return genes, num_mutations
 
 
+@profile()
 def chromify(population, get_fitness):
     """TODO: document this."""
 
@@ -89,12 +93,14 @@ def chromify(population, get_fitness):
         population[i] = chrome(gene)
 
 
+@profile()
 def dechromify(population):
     """TODO: document this."""
     for i, chrome in enumerate(population):
         population[i] = chrome.genes
 
 
+@profile()
 def evolve(pop_size, crossover_rate, mutation_rate, get_fitness, display,
            mutations, create):
     """Execute a genetic algorithm with the given parameters"""
@@ -102,7 +108,7 @@ def evolve(pop_size, crossover_rate, mutation_rate, get_fitness, display,
     population = [create() for _ in range(pop_size)]
     chromify(population, get_fitness)
 
-    while gen < 100000:
+    while gen < 10:
         # create next gen
         nextPop = []
         i = pop_size
@@ -123,15 +129,17 @@ def evolve(pop_size, crossover_rate, mutation_rate, get_fitness, display,
 
         # mutate
         population = nextPop
+        num_mutes = 0
         for i, genes in enumerate(population):
             r = random.random()
             if r < mutation_rate:
-                population[i] = _mutate(genes, mutations)
+                population[i], mutes = _mutate(genes, mutations)
+                num_mutes += mutes
 
         # evaluate
         chromify(population, get_fitness)
         gen += 1
-        display(population, gen)
+        display(population, gen, num_mutes)
 
 
 if __name__ == "__main__":

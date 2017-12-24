@@ -1,27 +1,26 @@
 """Feed-Forward Neural Network, Activation Functions, and test script."""
 
 import numpy as np
-import pickle
 import display as visualizer
+from profilestats import profile
+
 
 def relu(x):
     """Relu Activation Function, returns x when x >= 0."""
     return np.maximum(x, 0)
-#
-
-import numpy as np
 
 
 def softmax(x):
     """Soft-max Function, normalizes a numpy array so that the entries sum to 1."""
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
-#
 
 
 def sigmoid(x):
     """Sigmoid Activation Function, returns 0-1f."""
     return 1 / (1 + np.exp(-x))
+
+
 #
 
 
@@ -38,6 +37,8 @@ def unflatten(shape, list):
                 index += 1
         weights.append(matrix)
     return weights
+
+
 #
 
 
@@ -49,11 +50,12 @@ def flatten(matrices):
             for weight in row:
                 list.append(weight)
     return list
+
+
 #
 
 
 class NeuralNetwork:
-
     """Feed-Forward Neural Network."""
 
     def __init__(self, shape, weights=None):
@@ -75,9 +77,9 @@ class NeuralNetwork:
             self.weights = weights
 
     def get_weight(self, from_layer, from_index, to_index):
-        return weights[from_layer+1][to_index, from_index];
+        return self.weights[from_layer + 1][from_index, to_index]
 
-
+    @profile()
     def evaluate(self, input):
         """
         Execute forward propagation.
@@ -118,7 +120,7 @@ class NeuralNetwork:
 
 def netinfo(network, gui=False):
     """TODO: document this."""
-    if(gui):
+    if (gui):
         visualizer.displayNetwork(network.shape, network.weights)
     info = "NETWORK SHAPE: " + str(network.shape) + ", WEIGHTS:\n"
     for i in range(len(network.weights)):
@@ -136,16 +138,17 @@ def netinfo(network, gui=False):
         info += "\n- - - -\n\n"
     #
     return info
-#
 
+
+#
 
 # if run as script, exec test
 if __name__ == "__main__":
-    nn = NeuralNetwork((2, 2))
+    nn = NeuralNetwork((25, 25, 25))
 
     print(netinfo(nn, True))
 
-    inp = [0, 1]
+    inp = [i for i in range(nn.shape[0])]
     output = nn.evaluate(inp).tolist()
 
     info = "Input: "

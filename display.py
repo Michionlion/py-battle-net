@@ -1,5 +1,7 @@
-from matplotlib import pyplot
-from math import cos, sin, atan
+from matplotlib import pyplot as plt
+from profilestats import profile
+from math import cos, sin, atan, degrees
+import time
 
 
 class Neuron():
@@ -9,13 +11,14 @@ class Neuron():
         self.index = index
 
     def draw(self, neuron_radius, active=False):
-        circle = pyplot.Circle(
+        circle = plt.Circle(
             (self.x, self.y), radius=neuron_radius, fill=active)
-        pyplot.gca().add_patch(circle)
+        plt.gca().add_patch(circle)
 
 
 class Layer():
-    def __init__(self, network, num_neurons, num_neurons_in_widest_layer, weights):
+    def __init__(self, network, num_neurons, num_neurons_in_widest_layer,
+                 weights):
         self.vertical_layer_distance = 6
         self.horizontal_neuron_distance = 2
         self.neuron_radius = 0.5
@@ -52,16 +55,37 @@ class Layer():
         else:
             return None
 
-    def _line_between_two_neurons(self, neuron1, neuron2):
+    def _line_between_two_neurons(self, neuron1, neuron2, number=False):
         weight = self.weights[neuron1.index, neuron2.index]
         angle = atan((neuron2.x - neuron1.x) / float(neuron2.y - neuron1.y))
         x_adjustment = self.neuron_radius * sin(angle)
         y_adjustment = self.neuron_radius * cos(angle)
         xdata = (neuron1.x - x_adjustment, neuron2.x + x_adjustment)
         ydata = (neuron1.y - y_adjustment, neuron2.y + y_adjustment)
-        line = pyplot.Line2D(xdata, ydata, linewidth=abs(weight))
-        pyplot.gca().add_line(line)
-        # pyplot.text(xdata[0] + xdata[1] / 2, ydata[0] + ydata[1] / 2, str(weight))
+        line = plt.Line2D(xdata, ydata, linewidth=abs(weight) + 0.5)
+        plt.gca().add_line(line)
+        if not number:
+            return
+        textx = sum(xdata) / 2
+        texty = sum(ydata) / 2
+        if (angle < 0):
+            plt.text(
+                textx + x_adjustment * 5.5,
+                texty + y_adjustment * 4,
+                "{0:.2f}".format(weight),
+                fontsize=9,
+                family='monospace',
+                weight='bold',
+                rotation=270 - degrees(angle))
+        else:
+            plt.text(
+                textx - x_adjustment * 5.5,
+                texty - y_adjustment * 4,
+                "{0:.2f}".format(weight),
+                fontsize=9,
+                family='monospace',
+                weight='bold',
+                rotation=90 - degrees(angle))
 
     def draw(self, layerType=0):
         for neuron in self.neurons:
@@ -69,16 +93,16 @@ class Layer():
             if self.previous_layer:
                 for previous_layer_neuron in self.previous_layer.neurons:
                     self._line_between_two_neurons(neuron,
-                                                    previous_layer_neuron)
+                                                   previous_layer_neuron)
         # write Text
         x_text = self.num_neurons_in_widest_layer * self.horizontal_neuron_distance
         if layerType == 0:
-            pyplot.text(x_text, self.y, 'Input Layer', fontsize=12)
+            plt.text(x_text, self.y, 'Input Layer', fontsize=11)
         elif layerType == -1:
-            pyplot.text(x_text, self.y, 'Output Layer', fontsize=12)
+            plt.text(x_text, self.y, 'Output Layer', fontsize=11)
         else:
-            pyplot.text(
-                x_text, self.y, 'Hidden Layer ' + str(layerType), fontsize=12)
+            plt.text(
+                x_text, self.y, 'Hidden Layer ' + str(layerType), fontsize=11)
 
 
 class NeuralNetwork():
@@ -88,21 +112,19 @@ class NeuralNetwork():
         self.layertype = 0
 
     def add_layer(self, num_neurons, weights):
-        layer = Layer(self, num_neurons,
-                      self.num_neurons_in_widest_layer, weights)
+        layer = Layer(self, num_neurons, self.num_neurons_in_widest_layer,
+                      weights)
         self.layers.append(layer)
 
     def draw(self):
-        pyplot.figure()
         for i in range(len(self.layers)):
             layer = self.layers[i]
             if i == len(self.layers) - 1:
                 i = -1
             layer.draw(i)
-        pyplot.axis('scaled')
-        pyplot.axis('off')
-        pyplot.title('Neural Network architecture', fontsize=15)
-        pyplot.show(block=False)
+        plt.axis('scaled')
+        plt.axis('off')
+        plt.title('Neural Network architecture', fontsize=15)
 
 
 class DrawNN():
@@ -114,10 +136,126 @@ class DrawNN():
         widest_layer = max(self.neural_network_shape)
         network = NeuralNetwork(widest_layer)
         for i, item in enumerate(self.neural_network_shape):
-            network.add_layer(item, self.weights[i-1] if i != 0 else None)
+            network.add_layer(item, self.weights[i - 1] if i != 0 else None)
         network.draw()
+
 
 def displayNetwork(network_shape, network_weights):
     g = DrawNN(network_shape, network_weights)
-
+    plt.figure(1)
     g.draw()
+    plt.show(block=False)
+
+
+class Visualizer:
+    def __init__(self):
+
+        self.best_fit = []
+        self.avg_fit = []
+        self.diversity = []
+        self.hits = []
+        self.misses = []
+        self.mutes = []
+        self.max_fit = float('inf')
+
+        plt.ion()
+        plt.figure(1)
+        plt.subplot(411)
+        # plot best and avg fitness
+        self.best_fit_plt, = plt.plot(self.best_fit, label='Best Fitness')
+        self.avg_fit_plt, = plt.plot(self.avg_fit, label='Average Fitness')
+        plt.xlim(xmin=0)
+        plt.autoscale()
+        plt.legend(loc=2, fontsize=6)
+        plt.subplot(412)
+        # plot diversity
+        self.diversity_plt, = plt.plot(
+            self.diversity, label='Diversity (Fitness Standard Deviation)')
+        plt.xlim(xmin=0)
+        plt.autoscale()
+        plt.legend(loc=2, fontsize=6)
+        plt.subplot(413)
+        # plot avg hits and misses of best so far, show max fitness so far
+        self.hits_plt, = plt.plot(self.hits, label='Maximum Average Hits')
+        self.misses_plt, = plt.plot(
+            self.misses, label='Maximum Average Misses')
+        self.max_fit_plt = plt.text(
+            0.01,
+            0.035,
+            "Maximum Fitness: {0:.3f}".format(self.max_fit),
+            fontweight='bold',
+            fontsize=9,
+            transform=self.hits_plt.axes.transAxes)
+        plt.xlim(xmin=0)
+        plt.autoscale()
+        plt.legend(loc=2, fontsize=6)
+        plt.subplot(414)
+
+        self.mutes_plt, = plt.plot(self.mutes, label='Number of Mutations')
+        plt.xlim(xmin=0)
+        plt.ylim(ymin=0)
+        plt.autoscale()
+        plt.legend(loc=2, fontsize=6)
+        plt.tight_layout()
+        plt.gcf().canvas.draw()
+        plt.show(block=False)
+
+    def stop(self):
+        plt.close(1)
+
+    def refresh_data(self):
+        self.best_fit_plt.set_data(range(len(self.best_fit)), self.best_fit)
+        self.avg_fit_plt.set_data(range(len(self.avg_fit)), self.avg_fit)
+        self.diversity_plt.set_data(range(len(self.diversity)), self.diversity)
+        self.hits_plt.set_data(range(len(self.hits)), self.hits)
+        self.misses_plt.set_data(range(len(self.misses)), self.misses)
+        self.max_fit_plt.set_text("Maximum Fitness: {0:.3f}".format(
+            self.max_fit))
+        self.mutes_plt.set_data(range(len(self.mutes)), self.mutes)
+
+    def rescale(self):
+        self.best_fit_plt.axes.relim()
+        self.best_fit_plt.axes.autoscale_view(True, True, True)
+        self.avg_fit_plt.axes.relim()
+        self.avg_fit_plt.axes.autoscale_view(True, True, True)
+        self.diversity_plt.axes.relim()
+        self.diversity_plt.axes.autoscale_view(True, True, True)
+        self.hits_plt.axes.relim()
+        self.hits_plt.axes.autoscale_view(True, True, True)
+        self.mutes_plt.axes.relim()
+        self.mutes_plt.axes.autoscale_view(True, True, True)
+
+    def repaint(self):
+        self.rescale()
+        # update canvas
+        plt.gcf().canvas.draw()
+
+    def add_generation(self, best_fit, avg_fit, diversity, best_hits,
+                       best_misses, num_mutes):
+        self.best_fit.append(best_fit)
+        self.avg_fit.append(avg_fit)
+        self.diversity.append(diversity)
+        self.mutes.append(num_mutes)
+
+        if (best_fit < self.max_fit):
+            self.hits.append(best_hits)
+            self.misses.append(best_misses)
+            self.max_fit = best_fit
+
+        self.refresh_data()
+
+        self.repaint()
+
+
+if __name__ == "__main__":
+    vis = Visualizer()
+    x = 0.253
+    y = 0
+    z = 3
+    while (True):
+        start = time.perf_counter()
+        x += 0.6132123
+        y += 1
+        z += 2
+        vis.add_generation(x, x / 2.53, z * 1.64, x * 3, x * 2 / 5, 4)
+        print("TIME " + str(y) + ": " + str(time.perf_counter() - start))

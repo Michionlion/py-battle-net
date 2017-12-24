@@ -8,7 +8,9 @@ import random
 import re
 import datetime
 from enum import Enum
+from profilestats import profile
 from multiprocessing import Pool
+from display import Visualizer as Vis
 
 
 class Fitness:
@@ -75,14 +77,14 @@ class Fitness:
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
-    NETWORK_SHAPE = (25, 36, 25)
+    NETWORK_SHAPE = (25, 25, 25)
     SHIP_SIZES = [4, 3]
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
     # WEIGHT_DIFF = 100
 
-    NUM_FITNESS_TESTS = 5
+    NUM_FITNESS_TESTS = 4
 
     GENE_LENGTH = 1
     for s in NETWORK_SHAPE:
@@ -102,7 +104,10 @@ class BattleshipTests(unittest.TestCase):
 
         startTime = datetime.datetime.now()
 
-        def fnDisplay(population, gen):
+        vis = Vis()
+
+        def fnDisplay(population, gen, num_mutes):
+
             avg = Fitness(0, 0, 0, 0, 0)
             for ind in population:
                 avg = avg + ind.fitness
@@ -113,6 +118,10 @@ class BattleshipTests(unittest.TestCase):
                 if not max_fit > ind.fitness:
                     max_fit = ind.fitness
 
+            diversity = np.std([ind.fitness.score for ind in population])
+
+            vis.add_generation(max_fit.score, avg.score, diversity,
+                               max_fit.hits, max_fit.misses, num_mutes)
             print("Gen " + str(gen) + ":\nAvg Fitness: " + str(avg) +
                   "\nMax Fitness: " + str(max_fit) + "\nElapsed Time: " +
                   str(datetime.datetime.now() - startTime) + "\n -- ")
@@ -124,8 +133,7 @@ class BattleshipTests(unittest.TestCase):
             return self.create_gene()
 
         muts = generate_mutations()
-
-        genetic.evolve(15, 0.82, 0.11, fnGetFitness, fnDisplay, muts, fnCreate)
+        genetic.evolve(20, 0.81, 0.11, fnGetFitness, fnDisplay, muts, fnCreate)
 
     def create_gene(self):
         """TODO: document this."""
@@ -133,22 +141,28 @@ class BattleshipTests(unittest.TestCase):
         genes = neuralnet.flatten(nn.weights)
         return genes
 
+    @profile()
     def get_fitness(self, genes):
         """TODO: document this."""
         weights = neuralnet.unflatten(self.NETWORK_SHAPE, genes)
         network = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=weights)
 
         results = []
-        pool = Pool()
+
+        # pooling the results actually made the computation much longer
+
+        # pool = Pool()
         for i in range(self.NUM_FITNESS_TESTS):
             # running tests
-            results.append(pool.apply_async(run_game, args=(network, )))
+            # results.append(pool.apply_async(run_game, args=(network, )))
+            results.append(run_game(network))
+
         # print(results)
-        pool.close()
-        pool.join()
+        # pool.close()
+        # pool.join()
         tries = fails = repeats = misses = hits = 0
         for res in results:
-            t, f, r, m, h = res.get()
+            t, f, r, m, h = res  # .get()
             tries += t
             fails += f
             repeats += r
@@ -161,6 +175,7 @@ class BattleshipTests(unittest.TestCase):
             misses / self.NUM_FITNESS_TESTS, hits / self.NUM_FITNESS_TESTS)
 
 
+@profile()
 def run_game(network):
     size = (5, 5)
     game = Game(size, ship_sizes=BattleshipTests.SHIP_SIZES)
@@ -282,15 +297,15 @@ class Board:
     TODO: fully document this.
 
     shots is a dict with a tuple representing the position pointing to a value,
-    1 for hit, -1 for miss. The key doesn't exist if it has not been shot at,
-    but get_shot_at returns 0 for no-shot positions.
+    1 for hit, 0 for miss. The key doesn't exist if it has not been shot at,
+    but get_shot_at returns -1 for no-shot positions.
     """
 
     HIT_INT_MARKER = 1
     HIT_STR_MARKER = "X"
-    MISS_INT_MARKER = -1
+    MISS_INT_MARKER = 0
     MISS_STR_MARKER = "O"
-    UNKNOWN_INT_MARKER = 0
+    UNKNOWN_INT_MARKER = -1
     UNKNOWN_STR_MARKER = "."
 
     def __init__(self, size, ships=[]):
