@@ -4,9 +4,12 @@ Genetic Engine Module.
 Provides methods and classes for evolving a phenotype with a given genotype.
 """
 import random
-from profilestats import profile
 
 MAX_NUM_MUTATIONS = 1
+N_POINT_CROSSOVER = True
+N_POINT_CROSSOVER_RATE = 0.5
+TOURNAMNET_SIZE_MODIFIER = 5
+TOURNAMENT = True
 
 
 class Chromosome:
@@ -21,6 +24,7 @@ class Chromosome:
 
 def roulette_select(population):
     sum_total = sum(ind.fitness**1.25 for ind in population)
+
     # print("size of selecting " + str(len(population)) + " total " +
     #      str(sum_total))
 
@@ -43,18 +47,25 @@ def roulette_select(population):
 
 
 def tournament_select(population, size):
+
+    if len(population) < size:
+        size = len(population)
+
     pop = random.sample(population, size)
-    print("select")
+    # print("select")
     while len(pop) > 1:
         new_pop = []
         for n in range(1, len(pop), 2):
-            if pop[n].fitness > pop[n-1].fitness:
+            if pop[n].fitness > pop[n - 1].fitness:
                 new_pop.append(pop[n])
             else:
-                new_pop.append(pop[n-1])
+                new_pop.append(pop[n - 1])
         pop = new_pop
-    print("info: {0:.3f} {1:.3f}".format(len(pop), size) + ", selected " + str(pop[0].fitness))
+    # print("info: {0:.3f} {1:.3f}".format(len(pop), size) + ", selected " +
+    #      str(pop[0].fitness))
+    population.remove(pop[0])
     return pop[0]
+
 
 """
 Options for custom crossover algorithms instead of basic single point
@@ -76,6 +87,22 @@ not make sense if your network only has a few layers.
 
 
 def crossover(genes1, genes2):
+    """Apply single or n point crossover to create children from given genes"""
+    if N_POINT_CROSSOVER:
+        n_point_crossover(genes1, genes2)
+    else:
+        single_point_crossover(genes1, genes2)
+
+
+def n_point_crossover(genes1, genes2):
+    """Do n-point crossover -- with given probability, exchange single alleles."""
+    for i in range(len(genes1)):
+        r = random.random()
+        if r < N_POINT_CROSSOVER_RATE:
+            genes1[i], genes2[i] = genes2[i], genes1[i]
+
+
+def single_point_crossover(genes1, genes2):
     """Do single-point crossover to generate children from given genes"""
     r = random.randint(1, len(genes1) - 1)
     # print("crossing at " + str(r))
@@ -83,30 +110,42 @@ def crossover(genes1, genes2):
     genes1[r:], genes2[r:] = genes2[r:], genes1[r:]
 
 
-def _mutate(genes, mutations):
+def mutate(genes, mutations):
     """Mutate genes with possible mutations mutations"""
     if isinstance(genes, Chromosome):
         genes = genes.genes
-    num_mutations = random.randint(1, MAX_NUM_MUTATIONS)
-    mutes = random.choices(mutations, k=num_mutations)
+    # num_mutations = random.randint(1, MAX_NUM_MUTATIONS)
+    #mutes = random.choices(mutations, k=num_mutations)
 
-    for mute in mutes:
-        genes = mute(genes)
-        # print("applied " + str(mute))
+    # for mute in mutes:
+    #    genes = mute(genes)
+    # print("applied " + str(mute))
+
+    genes[:] = random.choice(mutations)(genes)
+
     return genes
 
 
 def chromify(population, get_fitness):
     """TODO: document this."""
 
+    # total_fit = 0
+
     def chrome(gene):
+        # nonlocal total_fit
         if isinstance(gene, Chromosome):
+            # total_fit += gene.fitness.score
             return gene
         else:
-            return Chromosome(gene, get_fitness(gene))
+            fitness = get_fitness(gene)
+            # total_fit += fitness.score
+            return Chromosome(gene, fitness)
 
     for i, gene in enumerate(population):
         population[i] = chrome(gene)
+
+    # for ind in population:
+    #    ind.fitness.normalize(total_fit)
 
 
 def dechromify(population):
@@ -150,12 +189,11 @@ def generate_next_population(population, reproduction_rates, mutation_rate,
     for i, genes in enumerate(next_pop):
         r = random.random()
         if r < mutation_rate:
-            next_pop[i] = _mutate(genes, mutations)
+            next_pop[i] = mutate(genes, mutations)
             num_mutes += 1
 
     return next_pop, (num_mutes, elites, crossovers, news)
 
-TOURNAMENT = True
 
 def evolve(pop_size, reproduction_rates, mutation_rate, get_fitness, display,
            mutations, create):
@@ -163,7 +201,9 @@ def evolve(pop_size, reproduction_rates, mutation_rate, get_fitness, display,
 
     def select(population):
         if TOURNAMENT:
-            return tournament_select(population, int(pop_size / 3.5))
+            return tournament_select(
+                population,
+                int(pop_size / TOURNAMNET_SIZE_MODIFIER) + 1)
         else:
             return roulette_select(population)
 
@@ -187,7 +227,8 @@ def evolve(pop_size, reproduction_rates, mutation_rate, get_fitness, display,
     while True:
         # create next gen
         population, gen_info = generate_next_population(
-            population, reproduction_rates, mutation_rate, mutations, create, select)
+            population, reproduction_rates, mutation_rate, mutations, create,
+            select)
         # evaluate
         chromify(population, get_fitness)
         gen += 1

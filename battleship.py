@@ -11,11 +11,17 @@ from enum import Enum
 from display import Visualizer as Vis
 
 # game, network, and fitness params
-USE_INVALID = True
+USE_INVALID = False
 NEURAL_NET_SHAPE = (25, 25, 25)
 SHIP_SIZE_LIST = [4, 3]
 GAME_SIZE = (5, 5)
-RANDOM_NETWORK_HIT_CHANCE = float(sum(SHIP_SIZE_LIST) / (GAME_SIZE[0]*GAME_SIZE[1]))
+RANDOM_NETWORK_HIT_CHANCE = float(
+    sum(SHIP_SIZE_LIST) / (GAME_SIZE[0] * GAME_SIZE[1]))
+
+POPULATION_SIZE = 40
+# elite rate, crossover rate, new random rate
+REPRODUCTION_RATES = [0.15, 0.8, 0.05]
+MUTATION_RATE = 0.17
 
 
 class Fitness:
@@ -44,15 +50,18 @@ class Fitness:
         for t in range(len(hit_log)):
             total_reward += self.reward_at(t, hit_log)
         total_reward += 1 / len(hit_log)
-        return total_reward if total_reward > 0 else 0
+        return total_reward  # if total_reward > 0 else 0
 
     def reward_at(self, t0, hit_log):
         reward = 0
-        random_network_hit = RANDOM_NETWORK_HIT_CHANCE
+        random_network_hit = 0  # RANDOM_NETWORK_HIT_CHANCE
         for t in range(t0, len(hit_log)):
             reward += (hit_log[t] - random_network_hit) * 0.5**(t - t0)
 
         return reward
+
+    def normalize(self, total):
+        self.score /= total
 
 
 #    def __gt__(self, other):
@@ -170,15 +179,19 @@ class BattleshipTests(unittest.TestCase):
             fitness_diversity = np.std(
                 [ind.fitness.score for ind in population])
 
-            gene_diversity = np.mean(np.std([[allele for allele in ind.genes]
-                             for ind in population], axis=0))
+            gene_diversity = np.std(
+                [[allele for allele in ind.genes] for ind in population],
+                axis=0)
+            max_allele_deviation = np.amax(gene_diversity)
 
             vis.add_generation(max_fit.score, avg.score,
-                               (fitness_diversity, gene_diversity),
+                               (fitness_diversity, np.mean(gene_diversity)),
                                max_fit.hits, max_fit.misses, info)
             print("Gen " + str(gen) + ":\nAvg Fitness: " + str(avg) +
-                  "\nMax Fitness: " + str(max_fit) + "\nElapsed Time: " +
-                  str(datetime.datetime.now() - startTime) + "\n -- ")
+                  "\nMax Fitness: " + str(max_fit) + "\nGene Diversity: " +
+                  str(np.mean(gene_diversity)) + ",  Max Allele Deviation: " +
+                  str(max_allele_deviation) + "\nElapsed Time: " + str(
+                      datetime.datetime.now() - startTime) + "\n -- ")
 
         def fnGetFitness(genes):
             return self.get_fitness(genes)
@@ -187,8 +200,8 @@ class BattleshipTests(unittest.TestCase):
             return self.create_gene()
 
         muts = generate_mutations()
-        genetic.evolve(20, [0.29, 0.65, 0.06], 0.11, fnGetFitness, fnDisplay,
-                       muts, fnCreate)
+        genetic.evolve(POPULATION_SIZE, REPRODUCTION_RATES, MUTATION_RATE,
+                       fnGetFitness, fnDisplay, muts, fnCreate)
 
         input("END?")
 
@@ -331,15 +344,12 @@ def generate_mutations():
 
     def swap(genes):
         # print("swap")
-        first = second = 0
-        while (first == second):
-            first = random.randrange(0, len(genes))
-            second = random.randrange(0, len(genes))
+        first, second = random.sample(range(len(genes)), 2)
         genes[first], genes[second] = genes[second], genes[first]
         return genes
 
-    # return [replace, scale, delta_change, sign_change, swap]
-    return [scale, delta_change, swap]
+    return [replace, scale, delta_change, sign_change, swap]
+    # return [scale, delta_change, swap]
 
 
 class Ship:
@@ -491,10 +501,12 @@ class Game:
             else:
                 return random.randrange(start, stop)
 
-        d = random.choice([1, -1])
-
-        xr = self._board_size[0] if d < 0 else self._board_size[0] - length
-        yr = self._board_size[1] if d > 0 else self._board_size[1] - length
+        c = random.choice([1, -1])
+        for d in [c, -c]:
+            xr = self._board_size[0] if d < 0 else self._board_size[0] - length
+            yr = self._board_size[1] if d > 0 else self._board_size[1] - length
+            if xr >= 0 and yr >= 0:
+                break
 
         if xr < 0 or yr < 0:
             raise Exception(
