@@ -152,11 +152,15 @@ class Visualizer:
 
         self.best_fit = []
         self.avg_fit = []
-        self.diversity = []
-        self.hits = []
-        self.misses = []
-        self.mutes = []
-        self.max_fit = float('inf')
+        self.fitness_diversity = [0]
+        self.gene_diversity = [0]
+        self.hits = [0]
+        self.misses = [0]
+        self.mutes = [0]
+        self.elites = [0]
+        self.crossovers = [0]
+        self.news = [0]
+        self.max_fit = 0
 
         plt.ion()
         plt.figure(1)
@@ -164,13 +168,25 @@ class Visualizer:
         # plot best and avg fitness
         self.best_fit_plt, = plt.plot(self.best_fit, label='Best Fitness')
         self.avg_fit_plt, = plt.plot(self.avg_fit, label='Average Fitness')
+        self.best_fit_text_plt = plt.text(
+            0.01,
+            0.035,
+            "Best Fitness: {0:.3f}".format(0),
+            fontweight='bold',
+            fontsize=9,
+            transform=self.best_fit_plt.axes.transAxes)
         plt.xlim(xmin=0)
         plt.autoscale()
         plt.legend(loc=2, fontsize=6)
         plt.subplot(412)
-        # plot diversity
-        self.diversity_plt, = plt.plot(
-            self.diversity, label='Diversity (Fitness Standard Deviation)')
+        # plot fitness
+        self.fitness_diversity_plt, = plt.plot(
+            self.fitness_diversity,
+            label='Fitness Diversity (Fitness Standard Deviation)')
+        self.gene_diversity_plt, = plt.plot(
+            self.gene_diversity,
+            label=
+            'Gene Diversity (Mean Allele Standard Deviation)')
         plt.xlim(xmin=0)
         plt.autoscale()
         plt.legend(loc=2, fontsize=6)
@@ -191,7 +207,12 @@ class Visualizer:
         plt.legend(loc=2, fontsize=6)
         plt.subplot(414)
 
-        self.mutes_plt, = plt.plot(self.mutes, label='Number of Mutations')
+        self.mutes_plt, = plt.plot(self.mutes, label='Mutated Individuals')
+        self.elites_plt, = plt.plot(self.elites, label='Elite Individuals')
+        self.crossovers_plt, = plt.plot(
+            self.crossovers, label='Crossover Individuals')
+        self.news_plt, = plt.plot(self.news, label='New Individuals')
+
         plt.xlim(xmin=0)
         plt.ylim(ymin=0)
         plt.autoscale()
@@ -206,20 +227,27 @@ class Visualizer:
     def refresh_data(self):
         self.best_fit_plt.set_data(range(len(self.best_fit)), self.best_fit)
         self.avg_fit_plt.set_data(range(len(self.avg_fit)), self.avg_fit)
-        self.diversity_plt.set_data(range(len(self.diversity)), self.diversity)
+        self.best_fit_text_plt.set_text("Best Fitness: {0:.3f}".format(
+            self.best_fit[-1]))
+        self.fitness_diversity_plt.set_data(
+            range(len(self.fitness_diversity)), self.fitness_diversity)
+        self.gene_diversity_plt.set_data(
+            range(len(self.gene_diversity)), self.gene_diversity)
         self.hits_plt.set_data(range(len(self.hits)), self.hits)
         self.misses_plt.set_data(range(len(self.misses)), self.misses)
         self.max_fit_plt.set_text("Maximum Fitness: {0:.3f}".format(
             self.max_fit))
         self.mutes_plt.set_data(range(len(self.mutes)), self.mutes)
+        self.elites_plt.set_data(range(len(self.elites)), self.elites)
+        self.crossovers_plt.set_data(
+            range(len(self.crossovers)), self.crossovers)
+        self.news_plt.set_data(range(len(self.news)), self.news)
 
     def rescale(self):
         self.best_fit_plt.axes.relim()
         self.best_fit_plt.axes.autoscale_view(True, True, True)
-        self.avg_fit_plt.axes.relim()
-        self.avg_fit_plt.axes.autoscale_view(True, True, True)
-        self.diversity_plt.axes.relim()
-        self.diversity_plt.axes.autoscale_view(True, True, True)
+        self.fitness_diversity_plt.axes.relim()
+        self.fitness_diversity_plt.axes.autoscale_view(True, True, True)
         self.hits_plt.axes.relim()
         self.hits_plt.axes.autoscale_view(True, True, True)
         self.mutes_plt.axes.relim()
@@ -231,13 +259,17 @@ class Visualizer:
         plt.gcf().canvas.draw()
 
     def add_generation(self, best_fit, avg_fit, diversity, best_hits,
-                       best_misses, num_mutes):
+                       best_misses, info):
         self.best_fit.append(best_fit)
         self.avg_fit.append(avg_fit)
-        self.diversity.append(diversity)
-        self.mutes.append(num_mutes)
+        self.fitness_diversity.append(diversity[0])
+        self.gene_diversity.append(diversity[1])
+        self.mutes.append(info[0])
+        self.elites.append(info[1])
+        self.crossovers.append(info[2])
+        self.news.append(info[3])
 
-        if (best_fit < self.max_fit):
+        if (best_fit > self.max_fit):
             self.hits.append(best_hits)
             self.misses.append(best_misses)
             self.max_fit = best_fit

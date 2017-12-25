@@ -8,21 +8,51 @@ import random
 import re
 import datetime
 from enum import Enum
-from profilestats import profile
-from multiprocessing import Pool
 from display import Visualizer as Vis
+
+# game, network, and fitness params
+USE_INVALID = True
+NEURAL_NET_SHAPE = (25, 25, 25)
+SHIP_SIZE_LIST = [4, 3]
+GAME_SIZE = (5, 5)
+RANDOM_NETWORK_HIT_CHANCE = float(sum(SHIP_SIZE_LIST) / (GAME_SIZE[0]*GAME_SIZE[1]))
 
 
 class Fitness:
     """Fitness object to compare genes"""
 
-    def __init__(self, fails, repeats, tries, misses, hits):
+    def __init__(self,
+                 fails,
+                 repeats,
+                 tries,
+                 misses,
+                 hits,
+                 hit_log=None,
+                 score=None):
         self.fails = fails
         self.repeats = repeats
         self.tries = tries
         self.misses = misses
         self.hits = hits
-        self.score = fails * 10 + repeats * 5 + tries * 3 + misses * 2
+        if hit_log is None:
+            self.score = 'nan' if score is None else score
+        else:
+            self.score = self.calculate_score(hit_log)
+
+    def calculate_score(self, hit_log):
+        total_reward = 0
+        for t in range(len(hit_log)):
+            total_reward += self.reward_at(t, hit_log)
+        total_reward += 1 / len(hit_log)
+        return total_reward if total_reward > 0 else 0
+
+    def reward_at(self, t0, hit_log):
+        reward = 0
+        random_network_hit = RANDOM_NETWORK_HIT_CHANCE
+        for t in range(t0, len(hit_log)):
+            reward += (hit_log[t] - random_network_hit) * 0.5**(t - t0)
+
+        return reward
 
 
 #    def __gt__(self, other):
@@ -37,35 +67,54 @@ class Fitness:
 
     def __gt__(self, other):
         if isinstance(other, Fitness):
+            return self.score > other.score
+        else:
+            return self.score > other
+
+    def __lt__(self, other):
+        if isinstance(other, Fitness):
             return self.score < other.score
         else:
             return self.score < other
 
     def __add__(self, other):
         if isinstance(other, Fitness):
-            return Fitness(self.fails + other.fails,
-                           self.repeats + other.repeats,
-                           self.tries + other.tries,
-                           self.misses + other.misses, self.hits + other.hits)
+            return Fitness(
+                self.fails + other.fails,
+                self.repeats + other.repeats,
+                self.tries + other.tries,
+                self.misses + other.misses,
+                self.hits + other.hits,
+                score=self.score + other.score)
         else:
             return self.score + other
 
     def __radd__(self, other):
         return self.__add__(other)
 
+    def __pow__(self, other):
+        return self.score**other
+
     def __truediv__(self, other):
         return self.score / other
 
     def __floordiv__(self, other):
         if isinstance(other, Fitness):
-            return Fitness(self.fails / other.fails,
-                           self.repeats / other.repeats,
-                           self.tries / other.tries,
-                           self.misses / other.misses, self.hits / other.hits)
+            return Fitness(
+                self.fails / other.fails,
+                self.repeats / other.repeats,
+                self.tries / other.tries,
+                self.misses / other.misses,
+                self.hits / other.hits,
+                score=self.score / other.score)
         else:
-            return Fitness(self.fails / other, self.repeats / other,
-                           self.tries / other, self.misses / other,
-                           self.hits / other)
+            return Fitness(
+                self.fails / other,
+                self.repeats / other,
+                self.tries / other,
+                self.misses / other,
+                self.hits / other,
+                score=self.score / other)
 
     def __str__(self):
         return "{:.3f} fails, {:.3f} repeats, ".format(
@@ -77,8 +126,8 @@ class Fitness:
 class BattleshipTests(unittest.TestCase):
     """TODO: document this."""
 
-    NETWORK_SHAPE = (25, 25, 25)
-    SHIP_SIZES = [4, 3]
+    NETWORK_SHAPE = NEURAL_NET_SHAPE
+    SHIP_SIZES = SHIP_SIZE_LIST
     # weights go from -10 to 10 (inclusive)
     WEIGHT_REACH = 10
     # each possible weight value differs by 0.001
@@ -106,22 +155,27 @@ class BattleshipTests(unittest.TestCase):
 
         vis = Vis()
 
-        def fnDisplay(population, gen, num_mutes):
+        def fnDisplay(population, gen, info):
 
-            avg = Fitness(0, 0, 0, 0, 0)
+            avg = Fitness(0, 0, 0, 0, 0, score=0)
             for ind in population:
                 avg = avg + ind.fitness
             avg = avg // len(population)
 
             max_fit = avg
             for ind in population:
-                if not max_fit > ind.fitness:
+                if max_fit < ind.fitness:
                     max_fit = ind.fitness
 
-            diversity = np.std([ind.fitness.score for ind in population])
+            fitness_diversity = np.std(
+                [ind.fitness.score for ind in population])
 
-            vis.add_generation(max_fit.score, avg.score, diversity,
-                               max_fit.hits, max_fit.misses, num_mutes)
+            gene_diversity = np.mean(np.std([[allele for allele in ind.genes]
+                             for ind in population], axis=0))
+
+            vis.add_generation(max_fit.score, avg.score,
+                               (fitness_diversity, gene_diversity),
+                               max_fit.hits, max_fit.misses, info)
             print("Gen " + str(gen) + ":\nAvg Fitness: " + str(avg) +
                   "\nMax Fitness: " + str(max_fit) + "\nElapsed Time: " +
                   str(datetime.datetime.now() - startTime) + "\n -- ")
@@ -133,7 +187,10 @@ class BattleshipTests(unittest.TestCase):
             return self.create_gene()
 
         muts = generate_mutations()
-        genetic.evolve(20, 0.81, 0.11, fnGetFitness, fnDisplay, muts, fnCreate)
+        genetic.evolve(20, [0.29, 0.65, 0.06], 0.11, fnGetFitness, fnDisplay,
+                       muts, fnCreate)
+
+        input("END?")
 
     def create_gene(self):
         """TODO: document this."""
@@ -141,72 +198,108 @@ class BattleshipTests(unittest.TestCase):
         genes = neuralnet.flatten(nn.weights)
         return genes
 
-    @profile()
     def get_fitness(self, genes):
         """TODO: document this."""
         weights = neuralnet.unflatten(self.NETWORK_SHAPE, genes)
         network = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=weights)
 
-        results = []
-
-        # pooling the results actually made the computation much longer
-
-        # pool = Pool()
+        result = Result()
+        # multithreading inefficient for this
         for i in range(self.NUM_FITNESS_TESTS):
             # running tests
-            # results.append(pool.apply_async(run_game, args=(network, )))
-            results.append(run_game(network))
+            result = run_game(network, result)
 
-        # print(results)
-        # pool.close()
-        # pool.join()
-        tries = fails = repeats = misses = hits = 0
-        for res in results:
-            t, f, r, m, h = res  # .get()
-            tries += t
-            fails += f
-            repeats += r
-            misses += m
-            hits += h
+        for i in range(len(result.hit_log)):
+            result.hit_log[i] /= self.NUM_FITNESS_TESTS
 
         return Fitness(
-            fails / self.NUM_FITNESS_TESTS, repeats / self.NUM_FITNESS_TESTS,
-            tries / self.NUM_FITNESS_TESTS / 25.0,
-            misses / self.NUM_FITNESS_TESTS, hits / self.NUM_FITNESS_TESTS)
+            result.fails / self.NUM_FITNESS_TESTS,
+            result.repeats / self.NUM_FITNESS_TESTS,
+            result.tries / self.NUM_FITNESS_TESTS / self.NETWORK_SHAPE[0],
+            result.misses / self.NUM_FITNESS_TESTS,
+            result.hits / self.NUM_FITNESS_TESTS, result.hit_log)
 
 
-@profile()
-def run_game(network):
-    size = (5, 5)
+def roulette_select_index(probabilities, invalid):
+    sum_total = 0
+    for i, prob in enumerate(probabilities):
+        if not invalid(i):
+            sum_total += prob
+        else:
+            probabilities[i] = 0
+    r = random.uniform(0, sum_total)
+    total = 0
+    for i, prob in enumerate(probabilities):
+        if prob == 0:
+            continue
+        total += prob
+        if r < total:
+            return i
+
+    raise Exception(
+        "Fell through roulette_select_index -- could be selecting on empty list!"
+    )
+
+
+class Result:
+    def __init__(self):
+        self.tries = 0
+        self.hits = 0
+        self.misses = 0
+        self.repeats = 0
+        self.fails = 0
+        self.hit_log = []
+
+
+def run_game(network, result):
+    size = GAME_SIZE
     game = Game(size, ship_sizes=BattleshipTests.SHIP_SIZES)
     # print("board:\n" + str(game.board))
-    tries = fails = repeats = misses = hits = 0
-    while (not game.board.won()) and tries < game.board.squares() * 2.5:
+    startTries = result.tries
+    time = 0
+    while (not game.board.won()
+           ) and result.tries < startTries + game.board.squares() * 2.5:
         # input("continue?")
         inputVals = []
         for x in range(size[0]):
             for y in range(size[1]):
                 inputVals.append(game.board.get_shot_at((x, y)))
         # print("evaluating on " + str(inputVals))
-        selection = network.evaluate(inputVals)
+        selection = list(network.evaluate(inputVals))
+
         # print("outputs were " + str(selection))
-        arg = int(np.argmax(selection))
+        # select the actual shot by using the probabilities predicted
+
+        def invalid(index):
+            if USE_INVALID:
+                return game.board.get_shot_at(
+                    (index // size[0],
+                     index % size[1])) != game.board.UNKNOWN_INT_MARKER
+            else:
+                return False
+
+        arg = roulette_select_index(selection, invalid)
         shot = (arg // size[0], arg % size[1])
         # print("shooting at " + str(shot))
-        result = game.board.shoot(shot)
-        if result is False:
-            misses += 1
-        elif result is True:
-            hits += 1
-        elif result.startswith("already"):
-            repeats += 1
-        elif result.startswith("invalid"):
-            fails += 1
+        if len(result.hit_log) == time:
+            result.hit_log.append(0)
+        res = game.board.shoot(shot)
+        if res is False:
+            result.misses += 1
+            result.hit_log[time] += 0
+        elif res is True:
+            result.hits += 1
+            result.hit_log[time] += 1
+        elif res.startswith("already"):
+            result.repeats += 1
+        elif res.startswith("invalid"):
+            result.fails += 1
         else:
             raise Exception("Invalid return from board.shoot()")
         # print("board: " + str(game.board))
-        tries += 1
-    return tries, fails, repeats, misses, hits
+        result.tries += 1
+        time += 1
+    return result
 
 
 def generate_mutations():
@@ -245,7 +338,8 @@ def generate_mutations():
         genes[first], genes[second] = genes[second], genes[first]
         return genes
 
-    return [replace, scale, delta_change, sign_change, swap]
+    # return [replace, scale, delta_change, sign_change, swap]
+    return [scale, delta_change, swap]
 
 
 class Ship:
