@@ -1,5 +1,4 @@
 from matplotlib import pyplot as plt
-from profilestats import profile
 from math import cos, sin, atan, degrees
 import time
 
@@ -185,8 +184,7 @@ class Visualizer:
             label='Fitness Diversity (Fitness Standard Deviation)')
         self.gene_diversity_plt, = plt.plot(
             self.gene_diversity,
-            label=
-            'Gene Diversity (Mean Allele Standard Deviation)')
+            label='Gene Diversity (Mean Allele Standard Deviation)')
         plt.xlim(xmin=0)
         plt.autoscale()
         plt.legend(loc=2, fontsize=6)

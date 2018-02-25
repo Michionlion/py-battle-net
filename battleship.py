@@ -11,8 +11,8 @@ from enum import Enum
 from display import Visualizer as Vis
 
 # game, network, and fitness params
-USE_INVALID = False
-NEURAL_NET_SHAPE = (25, 25, 25)
+USE_INVALID = True
+NEURAL_NET_SHAPE = (25, 50, 25)
 SHIP_SIZE_LIST = [4, 3]
 GAME_SIZE = (5, 5)
 RANDOM_NETWORK_HIT_CHANCE = float(
@@ -49,14 +49,12 @@ class Fitness:
         total_reward = 0
         for t in range(len(hit_log)):
             total_reward += self.reward_at(t, hit_log)
-        total_reward += 1 / len(hit_log)
-        return total_reward  # if total_reward > 0 else 0
+        return total_reward
 
     def reward_at(self, t0, hit_log):
         reward = 0
-        random_network_hit = 0  # RANDOM_NETWORK_HIT_CHANCE
         for t in range(t0, len(hit_log)):
-            reward += (hit_log[t] - random_network_hit) * 0.5**(t - t0)
+            reward += (hit_log[t] - RANDOM_NETWORK_HIT_CHANCE) * 0.5**(t - t0)
 
         return reward
 
@@ -212,14 +210,11 @@ class BattleshipTests(unittest.TestCase):
         return genes
 
     def get_fitness(self, genes):
-        """TODO: document this."""
         weights = neuralnet.unflatten(self.NETWORK_SHAPE, genes)
         network = neuralnet.NeuralNetwork(self.NETWORK_SHAPE, weights=weights)
 
         result = Result()
-        # multithreading inefficient for this
         for i in range(self.NUM_FITNESS_TESTS):
-            # running tests
             result = run_game(network, result)
 
         for i in range(len(result.hit_log)):
@@ -317,33 +312,27 @@ def run_game(network, result):
 
 def generate_mutations():
     def replace(genes):
-        # print("replace")
         index = random.randrange(0, len(genes))
-        genes[index] = random.uniform(-BattleshipTests.WEIGHT_REACH,
-                                      BattleshipTests.WEIGHT_REACH)
+        genes[index] = random.uniform(-10, 10)
         return genes
 
     def scale(genes):
-        # print("scale")
         index = random.randrange(0, len(genes))
-        genes[index] *= random.uniform(0.5, 1.5)
+        genes[index] *= random.uniform(0.5, 2)
         return genes
 
     def delta_change(genes):
-        # print("delta")
         index = random.randrange(0, len(genes))
         change = random.uniform(-1, 1)
         genes[index] += change
         return genes
 
     def sign_change(genes):
-        # print("sign")
         index = random.randrange(0, len(genes))
         genes[index] *= -1
         return genes
 
     def swap(genes):
-        # print("swap")
         first, second = random.sample(range(len(genes)), 2)
         genes[first], genes[second] = genes[second], genes[first]
         return genes

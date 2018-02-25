@@ -79,7 +79,6 @@ class NeuralNetwork:
     def get_weight(self, from_layer, from_index, to_index):
         return self.weights[from_layer + 1][from_index, to_index]
 
-
     def evaluate(self, input):
         """
         Execute forward propagation.
